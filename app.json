@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "ClashXMarv",
+    "slug": "clashxmarv",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tiernandawg.clashxmarv"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}
