@@ -35,6 +35,7 @@ export default function App() {
   const [next,setNext] = useState(4);
   const [message,setMessage] = useState('DEPLOY A HERO');
   const [result,setResult] = useState('');
+  const [armedCard,setArmedCard] = useState(null);
   const idRef = useRef(0);
   const aiRef = useRef(4);
   const cardsInHand = [CARDS[selected%8],CARDS[(selected+1)%8],CARDS[(selected+2)%8],CARDS[(selected+3)%8]];
@@ -44,7 +45,7 @@ export default function App() {
     else setEnemyEnergy(v=>Math.max(0,v-card.cost));
     setUnits(v=>[...v,makeUnit(card,team,lane,++idRef.current)]);
   };
-  const reset = () => {setUnits([]);setTowers(INITIAL_TOWERS());setEnergy(5);setEnemyEnergy(5);setTime(180);setSelected(0);setNext(4);setResult('');setMessage('DEPLOY A HERO');aiRef.current=4;};
+  const reset = () => {setUnits([]);setTowers(INITIAL_TOWERS());setEnergy(5);setEnemyEnergy(5);setTime(180);setSelected(0);setNext(4);setResult('');setArmedCard(null);setMessage('DEPLOY A HERO');aiRef.current=4;};
   useEffect(()=>{
     if(result || screen!=='battle') return;
     const timer=setInterval(()=>{
@@ -106,12 +107,12 @@ export default function App() {
     <Text style={s.zoneLabel}>OPPONENT TERRITORY</Text><Text style={[s.zoneLabel,{top:'53%',color:'#83DDF6'}]}>YOUR TERRITORY</Text>
     {towers.map(t=><View key={t.id} style={[s.tower,{left:(t.x-7)+'%',top:(t.y-4)+'%',width:t.kind==='king'?52:42,height:t.kind==='king'?48:40,borderColor:t.team==='player'?'#65DDF7':'#FF727D',opacity:t.hp>0?1:0.25}]}><Text style={s.towerSymbol}>{t.kind==='king'?'♛':'◆'}</Text><View style={s.hpBack}><View style={[s.hpFill,{width:(Math.max(0,t.hp)/t.max*100)+'%',backgroundColor:t.team==='player'?'#65DDF7':'#FF727D'}]}/></View></View>)}
     {units.map(u=>{const c=CARDS.find(x=>x.id===u.card);return <View key={u.id} style={[s.unit,{left:(u.x-4)+'%',top:(u.y-3)+'%',borderColor:c.color,backgroundColor:u.team==='player'?'#102B40':'#401D2A'}]}><Text style={[s.unitText,{color:c.color}]}>{c.symbol}</Text><View style={s.unitHp}><View style={{height:3,width:Math.max(0,u.hp/u.max*100)+'%',backgroundColor:c.color}}/></View></View>})}
-    <Pressable style={s.leftLane} onPress={()=>{}}/><Pressable style={s.rightLane} onPress={()=>{}}/>
+    <Pressable style={s.leftLane} onPress={()=>{if(armedCard){deploy(CARDS.find(c=>c.id===armedCard),0);setArmedCard(null);}}}/><Pressable style={s.rightLane} onPress={()=>{if(armedCard){deploy(CARDS.find(c=>c.id===armedCard),1);setArmedCard(null);}}}/>
     {result?<View style={s.overlay}><Text style={s.result}>{result}</Text><Text style={s.overlaySub}>BATTLE SUMMARY</Text><Pressable style={s.mainBtn} onPress={reset}><Text style={s.mainBtnText}>PLAY AGAIN</Text></Pressable></View>:null}
   </View>
   <View style={s.bottom}><View style={s.energyRow}><Text style={s.energyLabel}>ENERGY</Text><View style={s.energyBar}>{Array.from({length:10},(_,i)=><View key={i} style={[s.energyCell,{backgroundColor:energy>=i+1?'#B58AFF':'#342846'}]}/>)}</View><Text style={s.energyNum}>{Math.floor(energy)}/10</Text></View>
     <Text style={s.hint}>{message} · TAP A CARD, THEN CHOOSE A LANE</Text>
-    <View style={s.hand}>{cardsInHand.map((c,i)=><Pressable key={c.id} onPress={()=>{if(energy<c.cost){setMessage('NOT ENOUGH ENERGY');return;}setMessage('CHOOSE A LANE FOR '+c.name);setSelected((selected+i)%8);}} style={[s.handCard,{borderColor:c.color,backgroundColor:'#171C2A'}]}><Text style={[s.costSmall,{color:'#C7A8FF'}]}>{c.cost}◆</Text><Text style={[s.handSymbol,{color:c.color}]}>{c.symbol}</Text><Text style={s.handName}>{c.name}</Text><Text style={s.handRole}>{c.role}</Text><Pressable style={s.deployBtn} onPress={()=>{if(energy>=c.cost)deploy(c,Math.random()<0.5?0:1);else setMessage('NOT ENOUGH ENERGY')}}><Text style={s.deployText}>DEPLOY</Text></Pressable></Pressable>)}</View>
+    <View style={s.hand}>{cardsInHand.map((c,i)=><Pressable key={c.id} onPress={()=>{if(energy<c.cost){setMessage('NOT ENOUGH ENERGY');return;}setArmedCard(c.id);setMessage('TAP A LANE TO DEPLOY '+c.name);setSelected((selected+i)%8);}} style={[s.handCard,{borderColor:c.color,backgroundColor:'#171C2A'}]}><Text style={[s.costSmall,{color:'#C7A8FF'}]}>{c.cost}◆</Text><Text style={[s.handSymbol,{color:c.color}]}>{c.symbol}</Text><Text style={s.handName}>{c.name}</Text><Text style={s.handRole}>{c.role}</Text><Pressable style={s.deployBtn} onPress={()=>{if(energy>=c.cost)deploy(c,Math.random()<0.5?0:1);else setMessage('NOT ENOUGH ENERGY')}}><Text style={s.deployText}>DEPLOY</Text></Pressable></Pressable>)}</View>
     <View style={s.footer}><Pressable onPress={()=>setScreen('roster')}><Text style={s.footerBtn}>HERO DATABASE</Text></Pressable><Text style={s.footerMid}>AI OPPONENT · LOCAL MATCH</Text><Pressable onPress={reset}><Text style={s.footerBtn}>RESTART</Text></Pressable></View>
   </View></>}
   </SafeAreaView>;
