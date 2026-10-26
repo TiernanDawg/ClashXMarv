@@ -13,10 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm install
+      - run: npm test
+      - run: npx expo export --platform ios
       - run: eas build --platform ios --profile preview --non-interactive
