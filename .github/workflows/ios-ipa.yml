@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: Validate and Build iOS IPA
 on:
   workflow_dispatch:
   push:
@@ -6,18 +6,41 @@ on:
 permissions:
   contents: read
 jobs:
-  build:
+  validate:
+    name: Validate Expo app
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - uses: expo/expo-github-action@v8
+      - name: Install dependencies
+        run: npm install
+      - name: Run mechanics tests
+        run: npm test
+      - name: Export iOS JavaScript bundle
+        run: npx expo export --platform ios
+  build-ipa:
+    name: Build iOS IPA with EAS
+    needs: validate
+    if: ${{ vars.ENABLE_EAS_BUILD == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-      - run: npm install
-      - run: npm test
-      - run: npx expo export --platform ios
-      - run: eas build --platform ios --profile preview --non-interactive
+          node-version: 20
+      - name: Require Expo access token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Add the EXPO_TOKEN repository secret before enabling EAS builds."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm install
+      - name: Build iOS IPA
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli@latest build --platform ios --profile preview --non-interactive
