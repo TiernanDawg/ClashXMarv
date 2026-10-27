@@ -1,126 +1,59 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {SafeAreaView, View, Text, Pressable, StyleSheet, ScrollView, Dimensions} from 'react-native';
+import React,{useEffect,useRef,useState} from 'react';
+import {SafeAreaView,View,Text,Pressable,StyleSheet,ScrollView,Dimensions} from 'react-native';
 import {StatusBar} from 'expo-status-bar';
-
-const WIDTH = Dimensions.get('window').width;
-const CARDS = [
-  {id:'titan',name:'TITAN',role:'VANGUARD',cost:4,hp:190,dmg:24,range:30,speed:10,color:'#6DE0FF',symbol:'T'},
-  {id:'volt',name:'VOLT',role:'STRIKER',cost:3,hp:85,dmg:32,range:100,speed:15,color:'#FFD166',symbol:'ϟ'},
-  {id:'wraith',name:'WRAITH',role:'ASSASSIN',cost:3,hp:75,dmg:38,range:25,speed:19,color:'#C5A3FF',symbol:'W'},
-  {id:'nova',name:'NOVA',role:'BLASTER',cost:5,hp:110,dmg:42,range:120,speed:9,color:'#FF8B70',symbol:'✦'},
-  {id:'pulse',name:'PULSE',role:'SUPPORT',cost:3,hp:100,dmg:17,range:85,speed:11,color:'#7DFFB3',symbol:'P'},
-  {id:'sentinel',name:'SENTINEL',role:'GUARD',cost:4,hp:155,dmg:25,range:65,speed:9,color:'#9AB5FF',symbol:'S'},
-  {id:'sparks',name:'SPARKS',role:'SWARM',cost:2,hp:48,dmg:13,range:24,speed:18,color:'#FFDC70',symbol:'✧'},
-  {id:'rift',name:'RIFT',role:'CONTROLLER',cost:4,hp:105,dmg:27,range:105,speed:10,color:'#FF8AC8',symbol:'R'}
-];
-const INITIAL_TOWERS = () => [
-  {id:'e-left',team:'enemy',lane:0,x:25,y:34,hp:420,max:420,kind:'side'},
-  {id:'e-right',team:'enemy',lane:1,x:75,y:34,hp:420,max:420,kind:'side'},
-  {id:'e-king',team:'enemy',lane:0.5,x:50,y:10,hp:700,max:700,kind:'king'},
-  {id:'p-left',team:'player',lane:0,x:25,y:66,hp:420,max:420,kind:'side'},
-  {id:'p-right',team:'player',lane:1,x:75,y:66,hp:420,max:420,kind:'side'},
-  {id:'p-king',team:'player',lane:0.5,x:50,y:90,hp:700,max:700,kind:'king'}
-];
-const makeUnit = (card,team,lane,id) => ({id,card:card.id,team,lane,x:lane===0?25:75,y:team==='player'?79:21,hp:card.hp,max:card.hp,attack:0});
-const fmt = n => Math.max(0,Math.ceil(n)).toString().padStart(2,'0');
-
-export default function App() {
-  const [screen,setScreen] = useState('battle');
-  const [energy,setEnergy] = useState(5);
-  const [enemyEnergy,setEnemyEnergy] = useState(5);
-  const [units,setUnits] = useState([]);
-  const [towers,setTowers] = useState(INITIAL_TOWERS());
-  const [time,setTime] = useState(180);
-  const [selected,setSelected] = useState(0);
-  const [next,setNext] = useState(4);
-  const [message,setMessage] = useState('DEPLOY A HERO');
-  const [result,setResult] = useState('');
-  const [armedCard,setArmedCard] = useState(null);
-  const idRef = useRef(0);
-  const aiRef = useRef(4);
-  const cardsInHand = [CARDS[selected%8],CARDS[(selected+1)%8],CARDS[(selected+2)%8],CARDS[(selected+3)%8]];
-  const deploy = (card,lane,team='player') => {
-    if(team==='player' && energy<card.cost) {setMessage('NOT ENOUGH ENERGY');return;}
-    if(team==='player') {setEnergy(v=>v-card.cost);setSelected(v=>(v+1)%8);setNext(v=>(v+1)%8);setMessage(card.name+' DEPLOYED');}
-    else setEnemyEnergy(v=>Math.max(0,v-card.cost));
-    setUnits(v=>[...v,makeUnit(card,team,lane,++idRef.current)]);
-  };
-  const reset = () => {setUnits([]);setTowers(INITIAL_TOWERS());setEnergy(5);setEnemyEnergy(5);setTime(180);setSelected(0);setNext(4);setResult('');setArmedCard(null);setMessage('DEPLOY A HERO');aiRef.current=4;};
-  useEffect(()=>{
-    if(result || screen!=='battle') return;
-    const timer=setInterval(()=>{
-      setTime(t=>{if(t<=1){setResult('TIME UP');return 0;}return t-1;});
-      setEnergy(e=>Math.min(10,e+(time<=60?0.28:0.17)));
-      setEnemyEnergy(e=>Math.min(10,e+(time<=60?0.28:0.17)));
-      aiRef.current-=0.25;
-      if(aiRef.current<=0){
-        const playable=CARDS.filter(c=>c.cost<=enemyEnergy);
-        if(playable.length){const c=playable[Math.floor(Math.random()*playable.length)];deploy(c,Math.random()<0.5?0:1,'enemy');}
-        aiRef.current=2.5+Math.random()*3.5;
-      }
-      setUnits(prev=>{
-        let arr=prev.map(u=>({...u,hp:u.hp,attack:u.attack+0.25}));
-        const dead=new Set();
-        arr.forEach((u,i)=>{
-          if(u.hp<=0)return;
-          const enemies=arr.filter(v=>v.team!==u.team&&v.lane===u.lane&&Math.abs(v.y-u.y)<9&&v.hp>0);
-          const target=enemies.sort((a,b)=>Math.abs(a.y-u.y)-Math.abs(b.y-u.y))[0];
-          const card=CARDS.find(c=>c.id===u.card);
-          if(target && Math.abs(target.y-u.y)<(card.range>50?12:5)){
-            if(u.attack>=1){target.hp-=card.dmg;u.attack=0;}
-          }else{
-            const opposingTowers=towers.filter(t=>t.team!==(u.team)&&t.hp>0&&t.kind==='side'&&t.lane===u.lane);
-            const tower=opposingTowers[0];
-            if(tower && Math.abs(tower.y-u.y)<8){if(u.attack>=1){setTowers(ts=>ts.map(t=>t.id===tower.id?{...t,hp:t.hp-card.dmg}:t));u.attack=0;}}
-            else u.y += (u.team==='player'?-1:1)*card.speed*0.25;
-          }
-        });
-        arr=arr.filter(u=>u.hp>0&&u.y>3&&u.y<97);
-        return arr;
-      });
-      setTowers(ts=>ts.map(t=>{
-        if(t.hp<=0)return t;
-        const target=units.find(u=>u.team!==t.team&&Math.abs(u.x-t.x)<17&&Math.abs(u.y-t.y)<10);
-        if(target && Math.random()<0.22)return {...t,hp:t.hp-15};
-        return t;
-      }));
-    },250);
-    return ()=>clearInterval(timer);
-  },[result,screen,time,enemyEnergy,towers,units]);
-  useEffect(()=>{
-    if(!result)return;
-    const p=towers.filter(t=>t.team==='player').reduce((s,t)=>s+Math.max(0,t.hp),0);
-    const e=towers.filter(t=>t.team==='enemy').reduce((s,t)=>s+Math.max(0,t.hp),0);
-    setResult(p===e?'DRAW':p>e?'VICTORY':'DEFEAT');
-  },[result==='TIME UP']);
-  const totalEnemy=towers.filter(t=>t.team==='enemy').reduce((s,t)=>s+t.hp,0);
-  const totalPlayer=towers.filter(t=>t.team==='player').reduce((s,t)=>s+t.hp,0);
-  const playCard=(card)=>deploy(card,0);
-  return <SafeAreaView style={s.safe}><StatusBar style="light"/><View style={s.top}>
-    <View><Text style={s.brand}>CLASH<Text style={{color:'#F4B94D'}}>X</Text>MARV</Text><Text style={s.sub}>HERO ARENA // PROTOTYPE</Text></View>
-    <View style={s.timer}><Text style={s.timerText}>{fmt(Math.floor(time/60))}:{fmt(time%60)}</Text><Text style={s.timerSub}>{time<=60?'OVERTIME ENERGY':'BATTLE TIME'}</Text></View>
-  </View>
-  {screen==='roster'?<ScrollView contentContainerStyle={s.roster}><Text style={s.section}>HERO DATABASE</Text>{CARDS.map(c=><View key={c.id} style={s.rosterCard}><View style={[s.avatar,{borderColor:c.color}]}><Text style={[s.avatarText,{color:c.color}]}>{c.symbol}</Text></View><View style={{flex:1}}><Text style={s.cardName}>{c.name}</Text><Text style={s.cardRole}>{c.role} · {c.hp} HP · {c.dmg} DMG</Text></View><Text style={s.cost}>{c.cost}◆</Text></View>)}<Pressable style={s.mainBtn} onPress={()=>setScreen('battle')}><Text style={s.mainBtnText}>RETURN TO ARENA</Text></Pressable></ScrollView>:<>
-  <View style={s.stats}><Text style={s.statText}>ENEMY CORE <Text style={{color:'#FF7979'}}>{Math.max(0,totalEnemy)}</Text></Text><Text style={s.statText}>YOUR CORE <Text style={{color:'#6DE0FF'}}>{Math.max(0,totalPlayer)}</Text></Text></View>
-  <View style={s.arena}>
-    <View style={s.enemyZone}/><View style={s.river}/><View style={s.bridgeLeft}/><View style={s.bridgeRight}/><View style={s.laneLine}/>
-    <Text style={s.zoneLabel}>OPPONENT TERRITORY</Text><Text style={[s.zoneLabel,{top:'53%',color:'#83DDF6'}]}>YOUR TERRITORY</Text>
-    {towers.map(t=><View key={t.id} style={[s.tower,{left:(t.x-7)+'%',top:(t.y-4)+'%',width:t.kind==='king'?52:42,height:t.kind==='king'?48:40,borderColor:t.team==='player'?'#65DDF7':'#FF727D',opacity:t.hp>0?1:0.25}]}><Text style={s.towerSymbol}>{t.kind==='king'?'♛':'◆'}</Text><View style={s.hpBack}><View style={[s.hpFill,{width:(Math.max(0,t.hp)/t.max*100)+'%',backgroundColor:t.team==='player'?'#65DDF7':'#FF727D'}]}/></View></View>)}
-    {units.map(u=>{const c=CARDS.find(x=>x.id===u.card);return <View key={u.id} style={[s.unit,{left:(u.x-4)+'%',top:(u.y-3)+'%',borderColor:c.color,backgroundColor:u.team==='player'?'#102B40':'#401D2A'}]}><Text style={[s.unitText,{color:c.color}]}>{c.symbol}</Text><View style={s.unitHp}><View style={{height:3,width:Math.max(0,u.hp/u.max*100)+'%',backgroundColor:c.color}}/></View></View>})}
-    <Pressable style={s.leftLane} onPress={()=>{if(armedCard){deploy(CARDS.find(c=>c.id===armedCard),0);setArmedCard(null);}}}/><Pressable style={s.rightLane} onPress={()=>{if(armedCard){deploy(CARDS.find(c=>c.id===armedCard),1);setArmedCard(null);}}}/>
-    {result?<View style={s.overlay}><Text style={s.result}>{result}</Text><Text style={s.overlaySub}>BATTLE SUMMARY</Text><Pressable style={s.mainBtn} onPress={reset}><Text style={s.mainBtnText}>PLAY AGAIN</Text></Pressable></View>:null}
-  </View>
-  <View style={s.bottom}><View style={s.energyRow}><Text style={s.energyLabel}>ENERGY</Text><View style={s.energyBar}>{Array.from({length:10},(_,i)=><View key={i} style={[s.energyCell,{backgroundColor:energy>=i+1?'#B58AFF':'#342846'}]}/>)}</View><Text style={s.energyNum}>{Math.floor(energy)}/10</Text></View>
-    <Text style={s.hint}>{message} · TAP A CARD, THEN CHOOSE A LANE</Text>
-    <View style={s.hand}>{cardsInHand.map((c,i)=><Pressable key={c.id} onPress={()=>{if(energy<c.cost){setMessage('NOT ENOUGH ENERGY');return;}setArmedCard(c.id);setMessage('TAP A LANE TO DEPLOY '+c.name);setSelected((selected+i)%8);}} style={[s.handCard,{borderColor:c.color,backgroundColor:'#171C2A'}]}><Text style={[s.costSmall,{color:'#C7A8FF'}]}>{c.cost}◆</Text><Text style={[s.handSymbol,{color:c.color}]}>{c.symbol}</Text><Text style={s.handName}>{c.name}</Text><Text style={s.handRole}>{c.role}</Text><Pressable style={s.deployBtn} onPress={()=>{if(energy>=c.cost)deploy(c,Math.random()<0.5?0:1);else setMessage('NOT ENOUGH ENERGY')}}><Text style={s.deployText}>DEPLOY</Text></Pressable></Pressable>)}</View>
-    <View style={s.footer}><Pressable onPress={()=>setScreen('roster')}><Text style={s.footerBtn}>HERO DATABASE</Text></Pressable><Text style={s.footerMid}>AI OPPONENT · LOCAL MATCH</Text><Pressable onPress={reset}><Text style={s.footerBtn}>RESTART</Text></Pressable></View>
-  </View></>}
-  </SafeAreaView>;
+import {CARDS,CARD_BY_ID} from './src/cards';
+import {createMatch,stepMatch,queueCommand,runBot,stateHash,deployZoneValid} from './src/sim';
+const W=Dimensions.get('window').width;
+const C={bg:'#090E19',panel:'#121A2A',line:'#29374B',muted:'#8C9BB1',gold:'#FFC96B',blue:'#53DDF5',red:'#FF687F',violet:'#B99BFF'};
+const fmt=n=>String(Math.max(0,Math.ceil(n))).padStart(2,'0');
+function HeroArt({card,team,phase='idle',size=44}) {
+ const p=card.palette[0],q=card.palette[1],blue=team==='blue';
+ const walking=phase==='walk', attacking=phase==='attack';
+ const limb={position:'absolute',width:size*.16,height:size*.3,backgroundColor:q,borderRadius:3,borderWidth:1,borderColor:'#101522'};
+ const prop=card.id==='vanguard'||card.id==='aegis'?'shield':card.id==='stormwarden'?'hammer':card.id==='wildclaw'?'claws':card.id==='forgeheart'?'core':card.id==='falcon'?'bow':card.id==='merc'?'pistols':card.kind==='spell'?'sigil':card.kind==='building'?'turret':card.id==='starforge'?'wings':'cape';
+ return <View style={{width:size,height:size*1.08,alignItems:'center',justifyContent:'center'}}>
+  <View style={{position:'absolute',bottom:1,width:size*.82,height:size*.2,borderRadius:99,backgroundColor:blue?'#287FAD':'#A63853',opacity:.6}}/>
+  {prop==='wings'&&<><View style={{position:'absolute',top:size*.28,left:size*.01,width:size*.33,height:size*.36,backgroundColor:q,borderRadius:size*.15,transform:[{rotate:'-28deg'}]}}/><View style={{position:'absolute',top:size*.28,right:size*.01,width:size*.33,height:size*.36,backgroundColor:q,borderRadius:size*.15,transform:[{rotate:'28deg'}]}}/></>}
+  <View style={[limb,{left:size*.3,top:size*.55,transform:[{rotate:walking?'-25deg':'-12deg'}]}]}/>
+  <View style={[limb,{right:size*.3,top:size*.55,transform:[{rotate:walking?'25deg':'12deg'}]}]}/>
+  <View style={{position:'absolute',top:size*.36,width:size*.49,height:size*.42,backgroundColor:p,borderColor:'#F4F6FF',borderWidth:1.5,borderRadius:card.id==='jade'||card.id==='void'?size*.1:size*.17,transform:[{skewX:attacking?'-8deg':'0deg'}]}}/>
+  <View style={{position:'absolute',top:size*.13,width:size*.34,height:size*.3,backgroundColor:'#EAC6A5',borderColor:q,borderWidth:2,borderRadius:card.id==='void'?size*.04:size*.14}}/>
+  <View style={{position:'absolute',top:size*.22,width:size*.28,height:size*.07,backgroundColor:card.id==='void'?'#E6A9FF':q,borderRadius:2}}/>
+  {prop==='shield'&&<View style={{position:'absolute',top:size*.47,left:size*.05,width:size*.25,height:size*.3,backgroundColor:blue?'#A7F0FF':'#FFC1C9',borderWidth:2,borderColor:q,borderRadius:size*.06,transform:[{rotate:'-8deg'}]}}/>}
+  {prop==='hammer'&&<><View style={{position:'absolute',top:size*.25,right:size*.12,width:size*.09,height:size*.45,backgroundColor:'#D5B27D',transform:[{rotate:'-28deg'}]}}/><View style={{position:'absolute',top:size*.16,right:size*.03,width:size*.29,height:size*.17,backgroundColor:'#F7D97D',borderWidth:2,borderColor:q,borderRadius:4,transform:[{rotate:'-28deg'}]}}/></>}
+  {prop==='claws'&&<View style={{position:'absolute',top:size*.54,right:size*.04,width:size*.28,height:size*.1,borderTopWidth:3,borderColor:'#F7F4DB',transform:[{rotate:'-20deg'}]}}/>}
+  {prop==='core'&&<View style={{position:'absolute',top:size*.45,width:size*.15,height:size*.15,backgroundColor:'#FFF0AE',borderRadius:size*.03,borderWidth:2,borderColor:'#FFFFFF'}}/>}
+  {prop==='bow'&&<View style={{position:'absolute',top:size*.35,right:size*.05,width:size*.2,height:size*.38,borderWidth:3,borderColor:'#BDEFFF',borderLeftWidth:0,borderRadius:size*.2}}/>}
+  {prop==='pistols'&&<><View style={{position:'absolute',top:size*.53,left:size*.02,width:size*.22,height:size*.1,backgroundColor:'#C9D3E2',transform:[{rotate:'-20deg'}]}}/><View style={{position:'absolute',top:size*.57,right:size*.02,width:size*.22,height:size*.1,backgroundColor:'#C9D3E2',transform:[{rotate:'20deg'}]}}/></>}
+  {prop==='cape'&&<View style={{position:'absolute',top:size*.35,right:size*.07,width:size*.19,height:size*.42,backgroundColor:q,borderRadius:3,transform:[{rotate:'18deg'}]}/> }
+  {prop==='sigil'&&<View style={{position:'absolute',top:size*.3,width:size*.54,height:size*.54,borderWidth:2,borderColor:p,borderRadius:size*.27,opacity:.75}}/>}
+  {prop==='turret'&&<View style={{position:'absolute',top:size*.52,width:size*.3,height:size*.19,backgroundColor:q,borderWidth:2,borderColor:p,borderRadius:3}}/>}
+ </View>;
 }
-const s=StyleSheet.create({
-safe:{flex:1,backgroundColor:'#0B0E17'},top:{height:65,paddingHorizontal:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderColor:'#262B3C'},brand:{fontSize:23,fontWeight:'900',letterSpacing:1.5,color:'#F1F4FA'},sub:{fontSize:8,color:'#8790A8',letterSpacing:2,marginTop:2},timer:{alignItems:'flex-end'},timerText:{color:'#F5F6FA',fontSize:25,fontWeight:'900',fontVariant:['tabular-nums']},timerSub:{fontSize:8,color:'#F4B94D',letterSpacing:1.3},
-stats:{height:30,flexDirection:'row',justifyContent:'space-between',paddingHorizontal:18,alignItems:'center'},statText:{fontSize:9,fontWeight:'800',color:'#A9B1C5',letterSpacing:1},
-arena:{flex:1,marginHorizontal:9,borderRadius:12,overflow:'hidden',borderWidth:1,borderColor:'#343A50',backgroundColor:'#111B27',minHeight:250},enemyZone:{position:'absolute',top:0,left:0,right:0,height:'49%',backgroundColor:'#281B2A'},river:{position:'absolute',top:'47%',height:'7%',left:0,right:0,backgroundColor:'#173B54',borderTopWidth:1,borderBottomWidth:1,borderColor:'#2B6B8D'},bridgeLeft:{position:'absolute',top:'46%',left:'13%',height:'9%',width:'24%',backgroundColor:'#6C5A54',borderWidth:1,borderColor:'#B09A81'},bridgeRight:{position:'absolute',top:'46%',left:'63%',height:'9%',width:'24%',backgroundColor:'#6C5A54',borderWidth:1,borderColor:'#B09A81'},laneLine:{position:'absolute',left:'49.5%',top:0,bottom:0,width:1,backgroundColor:'#3D4659'},zoneLabel:{position:'absolute',top:'2%',left:0,right:0,textAlign:'center',fontSize:8,letterSpacing:2,color:'#A18B9E',fontWeight:'800'},
-tower:{position:'absolute',alignItems:'center',justifyContent:'center',borderWidth:2,borderRadius:8,backgroundColor:'#1A2231',shadowColor:'#000',shadowOpacity:.5,shadowRadius:4},towerSymbol:{fontSize:20,color:'#E8ECF6'},hpBack:{position:'absolute',bottom:-6,left:1,right:1,height:4,backgroundColor:'#3A2630',borderRadius:3,overflow:'hidden'},hpFill:{height:4},unit:{position:'absolute',width:34,height:34,borderWidth:2,borderRadius:17,alignItems:'center',justifyContent:'center'},unitText:{fontWeight:'900',fontSize:17},unitHp:{position:'absolute',bottom:-5,left:1,right:1,height:3,backgroundColor:'#323344',overflow:'hidden'},leftLane:{position:'absolute',top:'57%',bottom:0,left:0,width:'48%',backgroundColor:'transparent'},rightLane:{position:'absolute',top:'57%',bottom:0,right:0,width:'48%',backgroundColor:'transparent'},
-bottom:{paddingHorizontal:10,paddingTop:6,paddingBottom:5},energyRow:{height:22,flexDirection:'row',alignItems:'center',gap:7},energyLabel:{color:'#A8B0C3',fontSize:9,fontWeight:'800',letterSpacing:1},energyBar:{flex:1,flexDirection:'row',gap:3},energyCell:{height:8,flex:1,borderRadius:2},energyNum:{color:'#E9DFFF',fontSize:11,fontWeight:'900',width:30,textAlign:'right'},hint:{color:'#929BB0',fontSize:8,letterSpacing:1,textAlign:'center',marginVertical:5},hand:{height:135,flexDirection:'row',gap:6},handCard:{flex:1,borderWidth:1,borderRadius:8,paddingTop:5,alignItems:'center',overflow:'hidden'},costSmall:{fontSize:9,fontWeight:'900',alignSelf:'flex-start',marginLeft:5},handSymbol:{fontSize:26,fontWeight:'900',marginTop:0},handName:{fontSize:9,color:'#F1F4FB',fontWeight:'900',letterSpacing:.5},handRole:{fontSize:6,color:'#8E98B0',marginTop:2},deployBtn:{position:'absolute',bottom:0,left:0,right:0,height:24,backgroundColor:'#34314A',alignItems:'center',justifyContent:'center'},deployText:{color:'#E9DFFF',fontSize:8,fontWeight:'900',letterSpacing:1},footer:{height:26,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},footerBtn:{color:'#B7A0EE',fontSize:8,fontWeight:'900',letterSpacing:.5},footerMid:{color:'#646E84',fontSize:7,letterSpacing:.5},roster:{padding:18,gap:10},section:{color:'#F4B94D',fontSize:13,fontWeight:'900',letterSpacing:2,marginBottom:6},rosterCard:{height:65,borderRadius:9,borderWidth:1,borderColor:'#30384C',backgroundColor:'#141A28',flexDirection:'row',alignItems:'center',padding:9,gap:12},avatar:{height:42,width:42,borderWidth:1.5,borderRadius:8,alignItems:'center',justifyContent:'center'},avatarText:{fontSize:22,fontWeight:'900'},cardName:{color:'#F4F5FA',fontSize:13,fontWeight:'900',letterSpacing:1},cardRole:{color:'#909AB0',fontSize:9,marginTop:3},cost:{color:'#C6A4FF',fontWeight:'900'},mainBtn:{marginTop:14,backgroundColor:'#C2A0FF',padding:14,borderRadius:8,alignItems:'center'},mainBtnText:{color:'#171321',fontWeight:'900',letterSpacing:1.5},overlay:{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(8,10,18,0.87)',alignItems:'center',justifyContent:'center'},result:{color:'#F4B94D',fontSize:36,fontWeight:'900',letterSpacing:3},overlaySub:{color:'#A7B0C4',fontSize:10,letterSpacing:2,marginTop:8}
-});
+function Bar({value,max,color}){return <View style={s.bar}><View style={{width:Math.max(0,Math.min(100,value/max*100))+'%',height:'100%',backgroundColor:color}}/></View>}
+export default function App(){
+ const matchRef=useRef(createMatch(Math.floor(Math.random()*1e9)));const [,refresh]=useState(0);
+ const [screen,setScreen]=useState('battle'),[picked,setPicked]=useState(null),[message,setMessage]=useState('PICK A CARD. CHOOSE A TILE.'),[debug,setDebug]=useState(false),[tickRate,setTickRate]=useState(1);
+ const m=matchRef.current;
+ useEffect(()=>{if(screen!=='battle'||m.done)return;let last=Date.now(),acc=0;const timer=setInterval(()=>{const now=Date.now();acc+=Math.min(.1,(now-last)/1000)*tickRate;last=now;while(acc>=1/30){stepMatch(m);if(m.tick%12===0)runBot(m,'red',3);acc-=1/30;}refresh(v=>v+1);},16);return()=>clearInterval(timer);},[screen,m.done,tickRate]);
+ const play=(card,x,y)=>{if(!card)return;if(!deployZoneValid('blue',card,x,y,m)){setMessage('INVALID TILE — YOUR SIDE ONLY');return;}if(m.energy.blue<card.cost){setMessage('NOT ENOUGH ENERGY');return;}queueCommand(m,{team:'blue',card:card.id,x,y,at:m.tick+1});setPicked(null);setMessage(card.name+' DEPLOYED');};
+ const reset=()=>{matchRef.current=createMatch((Date.now()>>>0));setPicked(null);setMessage('PICK A CARD. CHOOSE A TILE.');refresh(v=>v+1);};
+ const hand=m.hands.blue.map(id=>CARD_BY_ID[id]),next=CARD_BY_ID[m.decks.blue[m.cycle.blue%m.decks.blue.length]];
+ const left=CARDS.filter(c=>!['spell'].includes(c.kind));
+ return <SafeAreaView style={s.safe}><StatusBar style="light"/><View style={s.header}><View><Text style={s.brand}>VANGUARD <Text style={{color:C.gold}}>ARENA</Text></Text><Text style={s.tag}>DRAFT. DEPLOY. DOMINATE.</Text></View><View style={{alignItems:'flex-end'}}><Text style={s.clock}>{m.overtime?'OT ':''}{fmt(Math.floor(m.remaining/60))}:{fmt(m.remaining%60)}</Text><Text style={s.tiny}>RANKED PRACTICE · BOT</Text></View></View>
+ {screen==='collection'?<ScrollView contentContainerStyle={s.collection}><Text style={s.heading}>HERO ARCHIVE <Text style={s.tiny}>20 ORIGINAL CARDS</Text></Text>{CARDS.map(c=><View key={c.id} style={s.collectionCard}><HeroArt card={c} team="blue" size={56}/><View style={{flex:1}}><Text style={s.cardTitle}>{c.name}</Text><Text style={s.cardMeta}>{c.role} · {c.hp} HP · {c.damage} DMG</Text><Text style={s.cardMeta}>{c.ability||c.kind.toUpperCase()}</Text></View><Text style={s.cost}>{c.cost}</Text></View>)}<Pressable style={s.action} onPress={()=>setScreen('battle')}><Text style={s.actionText}>BACK TO BATTLE</Text></Pressable></ScrollView>:<><View style={s.scoreRow}><Text style={s.score}>RIVAL · BOT <Text style={{color:C.red}}>{m.stars.red} ★</Text></Text><Text style={s.score}>YOU <Text style={{color:C.blue}}>{m.stars.blue} ★</Text></Text></View>
+ <View style={s.arena}><View style={s.enemyHalf}/><View style={s.river}/><View style={s.bridgeA}/><View style={s.bridgeB}/><Text style={[s.zone,{top:'3%'}]}>NEON ROOFTOPS</Text><Text style={[s.zone,{top:'54%',color:C.blue}]}>YOUR DEPLOY ZONE</Text>
+ {m.towers.map(t=><View key={t.id} style={[s.tower,{left:(t.x/18*100-7)+'%',top:(t.y/32*100-3.5)+'%',borderColor:t.team==='blue'?C.blue:C.red,opacity:t.hp>0?1:.25}]}><View style={s.towerRoof}/><Text style={s.towerMark}>{t.kind==='command'?'V':'✦'}</Text><Bar value={t.hp} max={t.max} color={t.team==='blue'?C.blue:C.red}/></View>)}
+ {m.units.map(u=>{const c=CARD_BY_ID[u.card];return <View key={u.id} style={[s.actor,{left:(u.x/18*100-4)+'%',top:(u.y/32*100-4)+'%'}]}><View style={[s.teamRing,{borderColor:u.team==='blue'?C.blue:C.red}]}><HeroArt card={c} team={u.team} phase={u.anim} size={37}/></View><Bar value={u.hp} max={u.max} color={u.team==='blue'?C.blue:C.red}/></View>;})}
+ {m.effects.map((e,i)=><View key={i} pointerEvents="none" style={[s.spellFx,{left:(e.x/18*100-5)+'%',top:(e.y/32*100-3)+'%',borderColor:C.gold}]}/>)}
+ <View style={s.tileLayer}>{Array.from({length:8},(_,i)=><View key={i} style={s.tileRow}><Pressable style={[s.tile,{backgroundColor:picked&&m.energy.blue>=picked.cost?'rgba(83,221,245,.12)':'transparent'}]} onPress={()=>picked&&play(picked,4.5,20+i*.9)}/><Pressable style={[s.tile,{backgroundColor:picked&&m.energy.blue>=picked.cost?'rgba(83,221,245,.12)':'transparent'}]} onPress={()=>picked&&play(picked,13.5,20+i*.9)}/></View>)}</View>
+ {m.done&&<View style={s.overlay}><Text style={s.win}>{m.draw?'DRAW':m.winner==='blue'?'VICTORY':'DEFEAT'}</Text><Text style={s.subtitle}>MATCH COMPLETE · {m.stars.blue}–{m.stars.red} STARS</Text><Pressable style={s.action} onPress={reset}><Text style={s.actionText}>REMATCH</Text></Pressable><Pressable onPress={()=>setScreen('collection')}><Text style={s.link}>OPEN HERO ARCHIVE</Text></Pressable></View>}
+ </View>
+ <View style={s.energyRow}><Text style={s.energyLabel}>ENERGY</Text><View style={s.energyBar}>{Array.from({length:10},(_,i)=><View key={i} style={[s.energyCell,{backgroundColor:m.energy.blue>=i+1?'#B99BFF':'#2B2940'}]}/>)}</View><Text style={s.energyValue}>{m.energy.blue.toFixed(1)}</Text></View>
+ <Text style={s.message}>{message}</Text><View style={s.hand}>{hand.map((c,i)=><Pressable key={c.id} onPress={()=>{setPicked(c);setMessage('SELECTED '+c.name+' · TAP A TILE');}} style={[s.handCard,{borderColor:picked?.id===c.id?C.gold:c.palette[0],opacity:m.energy.blue<c.cost?.55:1}]}><Text style={s.energyCost}>{c.cost} ◈</Text><HeroArt card={c} team="blue" size={42}/><Text numberOfLines={1} style={s.handName}>{c.name}</Text><Text style={s.handRole}>{c.role}</Text></Pressable>)}</View>
+ <View style={s.nextRow}><Text style={s.nextText}>NEXT</Text>{next&&<><HeroArt card={next} team="blue" size={30}/><Text style={s.nextName}>{next.name}</Text></>}<Pressable onPress={()=>setDebug(v=>!v)}><Text style={s.link}>SANDBOX</Text></Pressable><Pressable onPress={()=>setScreen('collection')}><Text style={s.link}>COLLECTION</Text></Pressable><Pressable onPress={reset}><Text style={s.link}>RESET</Text></Pressable></View>
+ {debug&&<View style={s.debug}><Text style={s.cardMeta}>TICK {m.tick} · UNITS {m.units.length} · HASH {stateHash(m)} · ENERGY RATE {m.elapsed>=120?3:m.elapsed>=60?2:1}×</Text><View style={{flexDirection:'row',gap:8}}><Pressable style={s.smallBtn} onPress={()=>setTickRate(v=>v===1?0.5:v===0.5?2:1)}><Text style={s.link}>SPEED {tickRate}×</Text></Pressable><Pressable style={s.smallBtn} onPress={()=>{m.energy.blue=10;refresh(v=>v+1)}}><Text style={s.link}>FREE ENERGY</Text></Pressable><Pressable style={s.smallBtn} onPress={()=>{const c=CARDS.find(x=>x.id==='void');play(c,9,25)}}><Text style={s.link}>SPAWN VOID</Text></Pressable></View></View>}
+ </>}
+ </SafeAreaView>;
+}
+const s=StyleSheet.create({safe:{flex:1,backgroundColor:C.bg},header:{height:60,paddingHorizontal:15,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:C.line},brand:{fontSize:19,fontWeight:'900',letterSpacing:1,color:'#F4F6FC'},tag:{fontSize:8,letterSpacing:2,color:C.gold,marginTop:3},clock:{fontSize:22,fontWeight:'900',color:'#F5F7FF',fontVariant:['tabular-nums']},tiny:{fontSize:7,color:C.muted,letterSpacing:1},scoreRow:{height:27,paddingHorizontal:16,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},score:{fontSize:10,fontWeight:'900',letterSpacing:1,color:'#D5DDED'},arena:{flex:1,marginHorizontal:8,borderRadius:12,overflow:'hidden',borderWidth:1,borderColor:C.line,backgroundColor:'#132334',minHeight:240},enemyHalf:{position:'absolute',top:0,left:0,right:0,height:'49%',backgroundColor:'#2A1B2B'},river:{position:'absolute',top:'47%',height:'7%',left:0,right:0,backgroundColor:'#17415B',borderTopWidth:1,borderBottomWidth:1,borderColor:'#2B7598'},bridgeA:{position:'absolute',top:'46%',left:'12%',width:'26%',height:'9%',backgroundColor:'#78685D',borderWidth:1,borderColor:'#C4A989'},bridgeB:{position:'absolute',top:'46%',right:'12%',width:'26%',height:'9%',backgroundColor:'#78685D',borderWidth:1,borderColor:'#C4A989'},zone:{position:'absolute',left:0,right:0,textAlign:'center',fontSize:8,letterSpacing:2,color:'#B49AAE',fontWeight:'900'},tower:{position:'absolute',width:'14%',height:48,backgroundColor:'#202C40',borderWidth:2,borderRadius:7,alignItems:'center',justifyContent:'center',padding:3},towerRoof:{position:'absolute',top:-5,width:'65%',height:9,backgroundColor:'#667A91',borderRadius:2},towerMark:{fontSize:22,fontWeight:'900',color:'#F2F4FB'},bar:{width:'100%',height:4,backgroundColor:'#30384B',borderRadius:2,overflow:'hidden',marginTop:2},actor:{position:'absolute',width:48,alignItems:'center'},teamRing:{width:43,height:43,borderWidth:1.5,borderRadius:11,backgroundColor:'rgba(8,14,24,.55)',alignItems:'center',justifyContent:'center'},spellFx:{position:'absolute',width:50,height:50,borderWidth:2,borderRadius:30,opacity:.8},tileLayer:{position:'absolute',top:'60%',bottom:0,left:0,right:0},tileRow:{flex:1,flexDirection:'row'},tile:{flex:1,borderWidth:.5,borderColor:'rgba(160,210,245,.08)'},overlay:{position:'absolute',top:0,bottom:0,left:0,right:0,backgroundColor:'rgba(6,10,18,.88)',alignItems:'center',justifyContent:'center'},win:{fontSize:36,fontWeight:'900',letterSpacing:3,color:C.gold},subtitle:{fontSize:10,color:'#CAD3E4',letterSpacing:1,marginTop:6},action:{paddingVertical:12,paddingHorizontal:20,backgroundColor:C.gold,borderRadius:8,marginTop:16},actionText:{color:'#151722',fontWeight:'900',letterSpacing:1.5},link:{color:C.violet,fontSize:9,fontWeight:'900',letterSpacing:.5,padding:6},energyRow:{height:25,marginHorizontal:12,flexDirection:'row',alignItems:'center',gap:7},energyLabel:{fontSize:9,color:C.muted,fontWeight:'900'},energyBar:{flex:1,flexDirection:'row',gap:3},energyCell:{flex:1,height:8,borderRadius:2},energyValue:{width:30,textAlign:'right',color:'#E3D6FF',fontSize:11,fontWeight:'900'},message:{height:17,textAlign:'center,color:C.muted,fontSize:8,letterSpacing:1.2},hand:{height:119,flexDirection:'row',paddingHorizontal:8,gap:5},handCard:{flex:1,borderWidth:1,borderRadius:8,alignItems:'center',backgroundColor:'#141D2B',paddingTop:3,overflow:'hidden'},energyCost:{position:'absolute',top:4,left:5,color:C.violet,fontSize:9,fontWeight:'900',zIndex:2},handName:{color:'#F1F4FB',fontSize:8,fontWeight:'900',marginTop:1},handRole:{color:C.muted,fontSize:6,marginTop:2},nextRow:{height:35,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},nextText:{fontSize:8,fontWeight:'900',color:C.gold},nextName:{fontSize:8,color:'#D7E0F0',flex:1,marginLeft:5},debug:{padding:7,backgroundColor:'#151B2A',borderTopWidth:1,borderColor:C.line},smallBtn:{padding:3},collection:{padding:12,gap:8},heading:{fontSize:15,fontWeight:'900',color:C.gold,letterSpacing:1.5,marginBottom:6},collectionCard:{minHeight:74,borderRadius:9,borderWidth:1,borderColor:C.line,backgroundColor:C.panel,flexDirection:'row',alignItems:'center',padding:8,gap:9},cardTitle:{fontSize:12,fontWeight:'900',color:'#F4F6FC'},cardMeta:{fontSize:8,color:C.muted,marginTop:3},cost:{fontSize:16,fontWeight:'900',color:C.violet,padding:7}});
