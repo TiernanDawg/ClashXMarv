@@ -18,8 +18,8 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm test
-      - name: Headless bot balance benchmark
-        run: MATCHES=100 npm run simulate
+      - name: Headless balance simulator (1,000 matches)
+        run: MATCHES=1000 npm run simulate
       - name: Generate and verify procedural audio
         run: npm run audio:verify
       - run: npx expo export --platform ios

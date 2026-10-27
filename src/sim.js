@@ -8,7 +8,7 @@ export function createMatch(seed=1,opts={}){
  const towers=[];for(const team of ['red','blue']){const y=team==='blue'?28:4;for(let lane=0;lane<2;lane++)towers.push({id:team+'-sentry-'+lane,team,lane,x:lane===0?4.5:13.5,y:team==='blue'?23:9,hp:RULES.SENTRY_HP,max:RULES.SENTRY_HP,kind:'sentry',attack:0});towers.push({id:team+'-command',team,lane:0.5,x:9,y,hp:RULES.COMMAND_HP,max:RULES.COMMAND_HP,kind:'command',awake:false,attack:0});}
  return {seed, rngState:seed>>>0||1,tick:0,elapsed:0,remaining:RULES.REGULATION,overtime:false,done:false,winner:null,draw:false,energy:{blue:RULES.START_ENERGY,red:RULES.START_ENERGY},energyTick:{blue:0,red:0},decks:{blue:deck,red:shuffleSeeded(deck, rng)},hands:{blue:deck.slice(0,4),red:[]},next:{blue:deck[4],red:deck[4]},cycle:{blue:4,red:4},towers,units:[],effects:[],events:[],nextId:1,stars:{blue:0,red:0},commands:[],opts:{normalized:true,...opts},rng};
 }
-export function energyRate(m){return m.elapsed>=120?3:m.elapsed>=60?2:1;}
+export function energyRate(m){return m.elapsed>=240?3:m.elapsed>=120?2:1;}
 export function deployZoneValid(team,card,x,y,m){
  if(card.kind==='spell')return x>=0&&x<RULES.GRID_W&&y>=0&&y<RULES.GRID_H;
  if(team==='blue'){if(y<16)return false; if(y<20)return false; if(y<23&&m.towers.some(t=>t.team==='red'&&t.kind==='sentry'&&t.lane===(x<9?0:1)&&t.hp>0))return false;return true;}
