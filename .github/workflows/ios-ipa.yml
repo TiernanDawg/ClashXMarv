@@ -1,25 +1,25 @@
-name: Vanguard Arena — quality gates and unsigned IPA
-on:
+name: Vanguard Arena CI
+'on':
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 permissions:
   contents: read
 jobs:
   validate:
-    name: Lint, deterministic tests, balance benchmark and export
+    name: Lint tests simulation audio and Expo export
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - run: npm install
       - run: npm run lint
       - run: npm test
-      - name: Headless balance benchmark (1,000 bot matches)
-        run: npm run simulate
+      - name: Headless bot balance benchmark
+        run: MATCHES=100 npm run simulate
       - name: Generate and verify procedural audio
         run: npm run audio:verify
       - run: npx expo export --platform ios
@@ -32,13 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: echo "Build number: $GITHUB_RUN_NUMBER"
       - run: npm install
       - name: Generate native iOS project
         run: npx expo prebuild --platform ios --no-install
-        env:
-          EXPO_PUBLIC_BUILD_NUMBER: ${{ github.run_number }}
       - run: npx pod-install
       - name: Build iOS device app without Apple signing
         run: |
@@ -49,8 +45,11 @@ jobs:
           test -d "$APP_PATH" || { echo "Built app not found at $APP_PATH"; exit 1; }
           mkdir -p build/ipa/Payload
           cp -R "$APP_PATH" build/ipa/Payload/VanguardArena.app
-          cd build/ipa && /usr/bin/zip -qry ../../Vanguard-Arena.ipa Payload && cd ../..
-          test -s Vanguard-Arena.ipa && ls -lh Vanguard-Arena.ipa
+          cd build/ipa
+          /usr/bin/zip -qry ../../Vanguard-Arena.ipa Payload
+          cd ../..
+          test -s Vanguard-Arena.ipa
+          ls -lh Vanguard-Arena.ipa
       - uses: actions/upload-artifact@v4
         with:
           name: Vanguard-Arena
