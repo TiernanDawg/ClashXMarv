@@ -1,5 +1,5 @@
 import {CARDS,CARD_BY_ID,validateCards} from './cards.js';
-export const RULES=Object.freeze({HZ:30,REGULATION:180,OVERTIME:120,MAX_ENERGY:10,START_ENERGY:5,ENERGY_SECONDS:2.8,DOUBLE_AT:120,TRIPLE_AT:240,DEPLOY_SECONDS:0.85,TOWER_HP:720,SENTRY_HP:520,COMMAND_HP:1250,TOWER_DAMAGE:26,TOWER_RANGE:5.6,MAX_ENTITIES:96,GRID_W:18,GRID_H:32});
+export const RULES=Object.freeze({HZ:30,REGULATION:180,OVERTIME:120,MAX_ENERGY:10,START_ENERGY:5,ENERGY_SECONDS:2.8,DOUBLE_AT:120,TRIPLE_AT:240,DEPLOY_SECONDS:0.85,TOWER_HP:720,SENTRY_HP:440,COMMAND_HP:1100,TOWER_DAMAGE:26,TOWER_RANGE:5.6,MAX_ENTITIES:96,GRID_W:18,GRID_H:32});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function makeRng(seed){let s=(seed>>>0)||0x6d2b79f5;return ()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 export function shuffleSeeded(items,rng){const a=items.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
