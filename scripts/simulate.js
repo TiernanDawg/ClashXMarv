@@ -1,12 +1,12 @@
 import {createMatch,stepMatch,queueCommand,runBot,stateHash} from '../src/sim.js';
 import {CARDS} from '../src/cards.js';
 import {performance} from 'node:perf_hooks';
-const games=Number(process.env.MATCHES||1000),maxTicks=180*30;
+const games=Number(process.env.MATCHES||1000),maxTicks=180*30;\nconst ARCHETYPES=[['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge'],['jade','void','aegis','stormwarden','micro','turret','photon','cryo'],['vanguard','falcon','weaver','forgeheart','turret','tesla','overload','arc'],['micro','prowler','merc','starforge','beacon','photon','cryo','aegis'],['jade','forgeheart','stormwarden','void','turret','tesla','beacon','arc']];
 const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));
 const wins={blue:0,red:0,draw:0};let ticksTotal=0,peakEntities=0,usedEvents=0;
 const started=performance.now();
 for(let g=0;g<games;g++){
- const m=createMatch(g+7919),seen=new Set(),usedByTeam={blue:[],red:[]};
+ const m=createMatch(g+7919,{deck:ARCHETYPES[g%ARCHETYPES.length]}),seen=new Set(),usedByTeam={blue:[],red:[]};
  for(let t=0;t<maxTicks&&!m.done;t++){
   if(t%12===0){runBot(m,'blue',1+g%6);runBot(m,'red',1+(g+2)%6);}
   stepMatch(m);peakEntities=Math.max(peakEntities,m.units.length);
