@@ -16,7 +16,18 @@ export function deployZoneValid(team,card,x,y,m){
 }
 export function queueCommand(m,command){m.commands.push({...command,at:command.at??m.tick});}
 function event(m,type,data={}){m.events.push({tick:m.tick,type,...data});if(m.events.length>64)m.events.shift();}
-function damageTower(m,t,dmg,attacker){if(t.hp<=0)return;t.hp=Math.max(0,t.hp-dmg);damagePop(m,t.x,t.y-0.7,dmg,attacker);if(t.kind==='command')t.awake=true;if(t.kind==='sentry'&&t.hp===0){m.stars[attacker]=(m.stars[attacker]||0)+1;const cmd=m.towers.find(x=>x.team===t.team&&x.kind==='command');if(cmd)cmd.awake=true;event(m,'tower-destroyed',{id:t.id,team:t.team,attacker});}else event(m,'tower-hit',{id:t.id,damage:dmg});if(t.kind==='command'&&t.hp===0){m.stars[attacker]=3;m.done=true;m.winner=attacker;event(m,'command-destroyed',{team:t.team,attacker});}}
+function damageTower(m,t,dmg,attacker){
+ if(t.hp<=0)return;
+ const dealt=Math.min(t.hp,dmg);t.hp=Math.max(0,t.hp-dmg);t.lastHitTick=m.tick;
+ if(t.kind==='command')t.awake=true;
+ if(t.kind==='sentry'&&t.hp===0){
+  m.stars[attacker]=(m.stars[attacker]||0)+1;
+  const cmd=m.towers.find(x=>x.team===t.team&&x.kind==='command');if(cmd)cmd.awake=true;
+  event(m,'tower-destroyed',{id:t.id,team:t.team,attacker,x:t.x,y:t.y});
+ } else event(m,'tower-hit',{id:t.id,team:attacker,attacker,damage:Math.round(dealt*10)/10,x:t.x,y:t.y});
+ if(t.kind==='command'&&t.hp===0){m.stars[attacker]=3;m.done=true;m.winner=attacker;event(m,'command-destroyed',{team:t.team,attacker,x:t.x,y:t.y});}
+}
+
 function spawn(m,team,card,x,y,lane){if(m.units.length>=RULES.MAX_ENTITIES)return false;const count=card.count||1;for(let i=0;i<count;i++){if(m.units.length>=RULES.MAX_ENTITIES)break;const spread=(i-(count-1)/2)*0.28;m.units.push({id:m.nextId++,card:card.id,team,x:clamp(x+spread,0.5,17.5),y:clamp(y+spread,0.5,31.5),lane,hp:card.hp,max:card.hp,attack:0,age:0,deploy:RULES.DEPLOY_SECONDS,locked:null,anim:'spawn',animTime:0,life:card.lifetime||0,slow:0,stun:0,shield:0,lastTarget:null,beam:0,air:!!card.air,firstStrike:true,lastHitTick:-999});}event(m,'deploy',{team,card:card.id,x,y});return true;}
 function castSpell(m,team,card,x,y){for(const u of m.units){if(u.team===team)continue;const d=Math.hypot(u.x-x,u.y-y);if(d<=card.splash+0.8)applyUnitDamage(m,u,card.damage,team,x,y,card.id);}for(const t of m.towers){if(t.team!==team&&Math.hypot(t.x-x,t.y-y)<=card.splash)damageTower(m,t,card.damage*0.45,team);}m.effects.push({kind:card.id,x,y,life:0.8,team});event(m,'spell',{team,card:card.id,x,y});}
 function runCommands(m){m.commands.sort((a,b)=>a.at-b.at);while(m.commands.length&&m.commands[0].at<=m.tick){const c=m.commands.shift();if(m.done||!['blue','red'].includes(c.team))continue;const card=CARD_BY_ID[c.card];if(!card||m.energy[c.team]+1e-6<card.cost)continue;if(!deployZoneValid(c.team,card,c.x,c.y,m)){event(m,'invalid-deploy',{team:c.team,card:c.card});continue;}m.energy[c.team]=Math.max(0,m.energy[c.team]-card.cost);const deck=m.decks[c.team];const hand=m.hands[c.team];if(hand.length){const idx=hand.indexOf(c.card);if(idx>=0){hand.splice(idx,1);hand.push(deck[m.cycle[c.team]%deck.length]);m.cycle[c.team]++;}}if(card.kind==='spell')castSpell(m,c.team,card,c.x,c.y);else spawn(m,c.team,card,c.x,c.y,c.x<9?0:1);}}
