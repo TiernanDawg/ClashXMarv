@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {STARTER_DECK,LADDER,ladderTierIndex,ladderProgress,trophyDelta} from './src/ladder.js';
 const C={bg:'#080D18',panel:'#111B2D',ink:'#F4F7FF',muted:'#90A4BD',cyan:'#56D8F2',red:'#FF6F7F',gold:'#FFD36A',violet:'#A992FF',green:'#76E6B2'};
 const clock=n=>String(Math.floor(Math.max(0,n)/60)).padStart(2,'0')+':'+String(Math.floor(Math.max(0,n)%60)).padStart(2,'0');
+const touchToGrid=(x,y,w,h)=>{const gy=Math.max(0,Math.min(31,Math.floor(y/Math.max(1,h)*32))),sx=x/Math.max(1,w)*360,gx=Math.floor(9+(sx-180)/((.66+gy/32*.34)*18.67));return [Math.max(0,Math.min(17,gx)),gy];};
 function Figure({card,size=48,team='blue'}){
  const a=card.palette[0],b=card.palette[1],edge='#101827',rim=team==='blue'?C.cyan:C.red;
  let prop;
@@ -60,11 +61,11 @@ export default function App(){
   onMoveShouldSetPanResponderCapture:(_,g)=>Boolean(chosenRef.current)&&(Math.abs(g.dx)+Math.abs(g.dy)>12),
   onPanResponderGrant:(_,g)=>{const r=arenaRect.current;setDragPoint({x:g.moveX-r.x,y:g.moveY-r.y});},
   onPanResponderMove:(_,g)=>{const r=arenaRect.current;setDragPoint({x:g.moveX-r.x,y:g.moveY-r.y});},
-  onPanResponderRelease:(_,g)=>{const r=arenaRect.current,x=g.moveX-r.x,y=g.moveY-r.y;setDragPoint(null);if(x>=0&&x<r.width&&y>=0&&y<r.height)deployRef.current(Math.max(0,Math.min(17,Math.floor(x/r.width*18))),Math.max(0,Math.min(31,Math.floor(y/r.height*32))));},
+  onPanResponderRelease:(_,g)=>{const r=arenaRect.current,x=g.moveX-r.x,y=g.moveY-r.y;setDragPoint(null);if(x>=0&&x<r.width&&y>=0&&y<r.height){const [gx,gy]=touchToGrid(x,y,r.width,r.height);deployRef.current(gx,gy);}},
   onPanResponderTerminate:()=>setDragPoint(null),onPanResponderTerminationRequest:()=>true
  });
  const arenaHeight=Math.min(Dimensions.get('window').height*.465,430),red=m.towers.filter(t=>t.team==='red'),blue=m.towers.filter(t=>t.team==='blue'),redHp=red.reduce((a,t)=>a+t.hp,0),redMax=red.reduce((a,t)=>a+t.max,0),blueHp=blue.reduce((a,t)=>a+t.hp,0),blueMax=blue.reduce((a,t)=>a+t.max,0);
- const arena=<Pressable ref={arenaRef} onLayout={measureArena} onPress={e=>{if(chosen){const r=arenaRect.current;deployAt(Math.floor(e.nativeEvent.locationX/Math.max(1,r.width)*18),Math.floor(e.nativeEvent.locationY/Math.max(1,r.height)*32));}else setMessage('Choose a card, then drag to a tile. Long-press a card for its details.');}} style={[S.arena,{height:arenaHeight,borderColor:selected?C.gold:'#38526A'}]}>
+ const arena=<Pressable ref={arenaRef} onLayout={measureArena} onPress={e=>{if(chosen){const r=arenaRect.current,[gx,gy]=touchToGrid(e.nativeEvent.locationX,e.nativeEvent.locationY,r.width,r.height);deployAt(gx,gy);}else setMessage('Choose a card, then drag to a tile. Long-press a card for its details.');}} style={[S.arena,{height:arenaHeight,borderColor:selected?C.gold:'#38526A'}]}>
  <Svg width="100%" height="100%" viewBox="0 0 360 480" preserveAspectRatio="none">
   <Defs><LinearGradient id="grassField" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#3A5144"/><Stop offset=".35" stopColor="#2C4B3D"/><Stop offset=".52" stopColor="#274740"/><Stop offset="1" stopColor="#1B3D38"/></LinearGradient><LinearGradient id="riverWater" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#103D59"/><Stop offset=".45" stopColor="#327E96"/><Stop offset="1" stopColor="#12354D"/></LinearGradient><LinearGradient id="bridgeStone" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#D2BD95"/><Stop offset=".5" stopColor="#867560"/><Stop offset="1" stopColor="#4C4E4D"/></LinearGradient><LinearGradient id="unitBlue" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#45CBE4"/><Stop offset="1" stopColor="#12516F"/></LinearGradient><LinearGradient id="unitRed" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#F68E9B"/><Stop offset="1" stopColor="#772B4D"/></LinearGradient></Defs>
   <Rect width="360" height="480" fill="url(#grassField)"/><Path d="M0 0 H360 V180 L0 180 Z" fill="#B93D5B" opacity=".11"/><Path d="M0 300 H360 V480 H0 Z" fill="#20B6D1" opacity=".1"/><Path d="M0 0 L360 0 L318 480 L42 480 Z" fill="none" stroke="#B6D9D2" strokeOpacity=".12" strokeWidth="8"/><Path d="M0 0 L360 0 L318 480 L42 480 Z" fill="none" stroke="#071D25" strokeOpacity=".3" strokeWidth="2"/>
