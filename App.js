@@ -1,3 +1,4 @@
+/* global setInterval, clearInterval */
 import React,{useEffect,useRef,useState} from 'react';
 import {SafeAreaView,View,Text,Pressable,ScrollView,StyleSheet,Dimensions,StatusBar} from 'react-native';
 import Svg,{Path,Circle,Rect,G,Line,Defs,LinearGradient,Stop,Text as SvgText} from 'react-native-svg';
