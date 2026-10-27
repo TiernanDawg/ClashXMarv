@@ -11,8 +11,8 @@ export function createMatch(seed=1,opts={}){
 export function energyRate(m){return m.elapsed>=240?3:m.elapsed>=120?2:1;}
 export function deployZoneValid(team,card,x,y,m){
  if(card.kind==='spell')return x>=0&&x<RULES.GRID_W&&y>=0&&y<RULES.GRID_H;
- if(team==='blue')return y>=16;
- return y<=15;
+ if(team==='blue')return y>=18;
+ return y<=13;
 }
 export function queueCommand(m,command){m.commands.push({...command,at:command.at??m.tick});}
 function event(m,type,data={}){m.events.push({tick:m.tick,type,...data});if(m.events.length>64)m.events.shift();}
