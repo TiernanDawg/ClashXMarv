@@ -13,11 +13,14 @@ The IPA is unsigned and cannot be installed directly. Sideload with a signing to
 
 ## Implemented in this slice
 - Fixed 30 Hz deterministic simulation, seeded PRNG, timestamped deployment commands and state hash.
-- Twenty original cards spanning troops, heroes, spells and buildings; cost, role, target, range, health, damage, speed, splash, deploy delay and animation metadata are data-driven.
+- Twenty original cards spanning troops, heroes, spells and buildings; the armory explains each card’s role, best use, counter, target profile, and routing.
 - Four-card hand, next-card cycle, continuous energy, two lanes, bridge/arena coordinates, sentry/command towers, tower wake-up, spell impacts, status effects, buildings, entity cap, tower win and regulation/overtime resolution.
 - Original SVG-style character art is drawn from code and card-specific silhouettes/palettes.
-- Bot deployment, local match screen, collection gallery, settings/debug panel, battle restart.
+- Eight-rank offline trophy ladder with escalating bot tactics, distinct rival decks, trophy changes and saved profile.
+- Drag/release tile placement, visible ranged projectiles and tower fire, floating damage feedback, impact effects, health bars and richer arena terrain.
+- Bot decisions use rival difficulty, threats, card roles, spell clusters and lane pressure while retaining seeded reproducibility.
+- Armory card explanations and an in-game explanation of deterministic match seeds.
 - Deterministic regression tests, headless bot benchmark, generated synthesized WAV effects and CI quality gates.
 
 ## Known limitations
-This is a substantial playable foundation, not a finished commercial clone. Full drag placement and sophisticated bridge-aware pathfinding, all hero ultimates, high-quality character rigging/cinematics, persistent collection/economy/crates/quests/season, replay browser/share sheet, 2v2, and the optional online module are not complete. Procedural audio is synthesized atmospheric test audio, not studio sound design. FPS has not been measured on a physical iPhone; the CI benchmark measures simulation throughput only. Match balance data is experimental and not validated through human playtests. The unsigned artifact has not been tested on a physical iPhone until a human installs it with a valid signing method.
+This remains an original offline prototype rather than a finished commercial release. Character art is layered vector illustration rather than hand-painted 3D or skeletal animation, and the arena uses an enriched 2D top-down/isometric-inspired renderer rather than a true 3D engine. Pathing follows simple lane/target movement rather than a complete bridge-aware navigation mesh. Hero abilities are combat effects, not separate charge-and-cast ultimate controls. There is no online multiplayer, shared leaderboard, 2v2, replay browser or live-service economy. Procedural WAVs are generated and verified in CI but are not integrated into gameplay playback. FPS/memory have not been profiled on a physical iPhone, and balance has not been validated through human playtests. The unsigned IPA requires signing/sideloading.
