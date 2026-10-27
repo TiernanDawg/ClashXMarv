@@ -16,8 +16,6 @@ export function deployZoneValid(team,card,x,y,m){
 }
 export function queueCommand(m,command){m.commands.push({...command,at:command.at??m.tick});}
 function event(m,type,data={}){m.events.push({tick:m.tick,type,...data});if(m.events.length>64)m.events.shift();}
-function addProjectile(m,team,from,to,card,damage){const style=card.id==='tower'||(card.range||0)>2?'bolt':'slash';m.effects.push({kind:'projectile',style,x:from.x,y:from.y,tx:to.x,ty:to.y,life:style==='slash'?.18:.28,maxLife:style==='slash'?.18:.28,team,card:card.id,damage});if(m.effects.length>140)m.effects.splice(0,m.effects.length-140);}
-function damagePop(m,x,y,damage,team){m.effects.push({kind:'damage',x,y,life:.65,maxLife:.65,team,damage});if(m.effects.length>140)m.effects.splice(0,m.effects.length-140);}
 function damageTower(m,t,dmg,attacker){if(t.hp<=0)return;t.hp=Math.max(0,t.hp-dmg);damagePop(m,t.x,t.y-0.7,dmg,attacker);if(t.kind==='command')t.awake=true;if(t.kind==='sentry'&&t.hp===0){m.stars[attacker]=(m.stars[attacker]||0)+1;const cmd=m.towers.find(x=>x.team===t.team&&x.kind==='command');if(cmd)cmd.awake=true;event(m,'tower-destroyed',{id:t.id,team:t.team,attacker});}else event(m,'tower-hit',{id:t.id,damage:dmg});if(t.kind==='command'&&t.hp===0){m.stars[attacker]=3;m.done=true;m.winner=attacker;event(m,'command-destroyed',{team:t.team,attacker});}}
 function spawn(m,team,card,x,y,lane){if(m.units.length>=RULES.MAX_ENTITIES)return false;const count=card.count||1;for(let i=0;i<count;i++){if(m.units.length>=RULES.MAX_ENTITIES)break;const spread=(i-(count-1)/2)*0.28;m.units.push({id:m.nextId++,card:card.id,team,x:clamp(x+spread,0.5,17.5),y:clamp(y+spread,0.5,31.5),lane,hp:card.hp,max:card.hp,attack:0,age:0,deploy:RULES.DEPLOY_SECONDS,locked:null,anim:'spawn',animTime:0,life:card.lifetime||0,slow:0,stun:0,shield:0,lastTarget:null,beam:0,air:!!card.air,firstStrike:true,lastHitTick:-999});}event(m,'deploy',{team,card:card.id,x,y});return true;}
 function castSpell(m,team,card,x,y){for(const u of m.units){if(u.team===team)continue;const d=Math.hypot(u.x-x,u.y-y);if(d<=card.splash+0.8)applyUnitDamage(m,u,card.damage,team,x,y,card.id);}for(const t of m.towers){if(t.team!==team&&Math.hypot(t.x-x,t.y-y)<=card.splash)damageTower(m,t,card.damage*0.45,team);}m.effects.push({kind:card.id,x,y,life:0.8,team});event(m,'spell',{team,card:card.id,x,y});}
@@ -85,7 +83,17 @@ function stepUnit(m,u,dt){
  const dx=gx-u.x,dy=goalY-u.y,len=Math.max(.01,Math.hypot(dx,dy)),speed=card.speed*(u.slow>0?.5:1);
  u.x=clamp(u.x+dx/len*speed*dt,.5,17.5);u.y=clamp(u.y+dy/len*speed*dt,.5,31.5);u.anim='walk';
 }
-function towerStep(m,dt)function towerStep(m,dt){for(const t of m.towers){if(t.hp<=0)continue;t.attack+=dt;const targets=m.units.filter(u=>u.team!==t.team&&u.hp>0&&Math.hypot(u.x-t.x,u.y-t.y)<=RULES.TOWER_RANGE).sort((a,b)=>Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y));const target=targets[0];if(target&&t.attack>=1.0){addProjectile(m,t.team,t,target,{id:'tower'},RULES.TOWER_DAMAGE);target.hp-=RULES.TOWER_DAMAGE;damagePop(m,target.x,target.y,RULES.TOWER_DAMAGE,t.team);t.attack=0;target.anim='hit';target.animTime=0;if(t.kind==='command')t.awake=true;}}}
+function towerStep(m,dt){
+ for(const t of m.towers){
+  if(t.hp<=0)continue;t.attack+=dt;
+  const targets=m.units.filter(u=>u.team!==t.team&&u.hp>0&&Math.hypot(u.x-t.x,u.y-t.y)<=RULES.TOWER_RANGE).sort((a,b)=>Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y));
+  const target=targets[0];
+  if(target&&t.attack>=1.0){
+   fireProjectile(m,t,target,{id:'tower',damage:RULES.TOWER_DAMAGE,splash:0},{targetType:'unit',speed:12});
+   t.attack=0;if(t.kind==='command')t.awake=true;
+  }
+ }
+}
 function finishClock(m){if(m.done)return;if(m.remaining>0)return;if(!m.overtime){if(m.stars.blue!==m.stars.red){m.done=true;m.winner=m.stars.blue>m.stars.red?'blue':'red';return;}m.overtime=true;m.remaining=RULES.OVERTIME;event(m,'overtime');return;}if(m.stars.blue!==m.stars.red){m.done=true;m.winner=m.stars.blue>m.stars.red?'blue':'red';return;}const lowest=team=>Math.min(...m.towers.filter(t=>t.team===team).map(t=>t.hp));if(lowest('blue')!==lowest('red')){m.done=true;m.winner=lowest('blue')>lowest('red')?'blue':'red';}else{m.done=true;m.draw=true;}}
 export function stepMatch(m,dt=1/RULES.HZ){if(m.done)return m;m.tick++;m.elapsed+=dt;m.remaining=Math.max(0,m.remaining-dt);const rate=energyRate(m);for(const team of ['blue','red'])m.energy[team]=Math.min(RULES.MAX_ENERGY,m.energy[team]+dt*rate/RULES.ENERGY_SECONDS);runCommands(m);for(const u of m.units)stepUnit(m,u,dt);towerStep(m,dt);stepProjectiles(m,dt);m.units=m.units.filter(u=>u.hp>0&&u.y>=0&&u.y<=31);for(const e of m.effects)e.life-=dt;m.effects=m.effects.filter(e=>e.life>0);for(let i=0;i<m.units.length;i++){const a=m.units[i];for(let j=i+1;j<m.units.length;j++){const b=m.units[j];if(a.team===b.team&&Math.abs(a.y-b.y)<0.42&&Math.abs(a.x-b.x)<0.42&&a.deploy<=0&&b.deploy<=0){const push=a.id<b.id?0.08:-0.08;b.x=clamp(b.x+push,0.5,17.5);}}}finishClock(m);return m;}
 export function stateHash(m){
