@@ -1,10 +1,10 @@
 import {CARDS,CARD_BY_ID,validateCards} from './cards.js';
-export const RULES=Object.freeze({HZ:30,REGULATION:180,OVERTIME:120,MAX_ENERGY:10,START_ENERGY:5,ENERGY_SECONDS:2.8,DOUBLE_AT:120,TRIPLE_AT:240,DEPLOY_SECONDS:0.85,TOWER_HP:720,SENTRY_HP:520,COMMAND_HP:1250,TOWER_DAMAGE:26,TOWER_RANGE:5.6,MAX_ENTITIES:96,GRID_W:18,GRID_H:32,MAX_PROJECTILES:160});
+export const RULES=Object.freeze({HZ:30,REGULATION:210,OVERTIME:120,MAX_ENERGY:10,START_ENERGY:5,ENERGY_SECONDS:4.2,DOUBLE_AT:150,TRIPLE_AT:270,DEPLOY_SECONDS:1.15,TOWER_HP:720,SENTRY_HP:520,COMMAND_HP:1250,TOWER_DAMAGE:26,TOWER_RANGE:5.6,MAX_ENTITIES:96,GRID_W:18,GRID_H:32,MAX_PROJECTILES:160});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function makeRng(seed){let s=(seed>>>0)||0x6d2b79f5;return ()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 export function shuffleSeeded(items,rng){const a=items.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 export function createMatch(seed=1,opts={}){
- validateCards();const rng=makeRng(seed),deck=shuffleSeeded((opts.deck||['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge']).slice(0,8),rng),opponentDeck=shuffleSeeded((opts.opponentDeck||deck).slice(0,8),rng);
+ validateCards();const rng=makeRng(seed),deck=(opts.deck||['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge']).slice(0,8),opponentDeck=shuffleSeeded((opts.opponentDeck||deck).slice(0,8),rng);
  const towers=[];for(const team of ['red','blue']){const y=team==='blue'?28:4;for(let lane=0;lane<2;lane++)towers.push({id:team+'-sentry-'+lane,team,lane,x:lane===0?4.5:13.5,y:team==='blue'?23:9,hp:RULES.SENTRY_HP,max:RULES.SENTRY_HP,kind:'sentry',attack:0});towers.push({id:team+'-command',team,lane:0.5,x:9,y,hp:RULES.COMMAND_HP,max:RULES.COMMAND_HP,kind:'command',awake:false,attack:0});}
  return {seed, rngState:seed>>>0||1,tick:0,elapsed:0,remaining:RULES.REGULATION,overtime:false,done:false,winner:null,draw:false,energy:{blue:RULES.START_ENERGY,red:RULES.START_ENERGY},energyTick:{blue:0,red:0},decks:{blue:deck,red:opponentDeck},hands:{blue:deck.slice(0,4),red:[]},next:{blue:deck[4],red:opponentDeck[4]},cycle:{blue:4,red:4},towers,units:[],effects:[],projectiles:[],events:[],nextId:1,nextProjectileId:1,stars:{blue:0,red:0},commands:[],opts:{normalized:true,...opts},rng};
 }

@@ -41,3 +41,10 @@ Research signals used for the design:
 - Attack windups now briefly draw a team-colored line to the unit's current target with a marked target ring.
 - Units have stronger team halos and depth shadows, with a brighter hit flash and impact ticks when damage lands.
 - Match seeds are recorded separately from the next seed: each newly started match advances the saved seed, while the battle HUD displays the exact seed used for that match.
+
+
+## October 2026 feel-and-control revision
+- Slower tempo: longer regulation, slower energy regeneration, longer deployment tell, and 0.75 simulation speed by default.
+- Player deck order is intentional: first four selected cards start in hand, then cards cycle in order. The opponent still uses seeded shuffling.
+- Added a persistent eight-card deck builder and cleaner ladder-first home screen.
+- Touch drag begins on a hand card, tracks it to the arena, previews a tile, and deploys on release; tap-select remains a fallback.
