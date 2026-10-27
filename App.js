@@ -25,7 +25,7 @@ function HeroArt({card,team,phase='idle',size=44}) {
   {prop==='core'&&<View style={{position:'absolute',top:size*.45,width:size*.15,height:size*.15,backgroundColor:'#FFF0AE',borderRadius:size*.03,borderWidth:2,borderColor:'#FFFFFF'}}/>}
   {prop==='bow'&&<View style={{position:'absolute',top:size*.35,right:size*.05,width:size*.2,height:size*.38,borderWidth:3,borderColor:'#BDEFFF',borderLeftWidth:0,borderRadius:size*.2}}/>}
   {prop==='pistols'&&<><View style={{position:'absolute',top:size*.53,left:size*.02,width:size*.22,height:size*.1,backgroundColor:'#C9D3E2',transform:[{rotate:'-20deg'}]}}/><View style={{position:'absolute',top:size*.57,right:size*.02,width:size*.22,height:size*.1,backgroundColor:'#C9D3E2',transform:[{rotate:'20deg'}]}}/></>}
-  {prop==='cape'&&<View style={{position:'absolute',top:size*.35,right:size*.07,width:size*.19,height:size*.42,backgroundColor:q,borderRadius:3,transform:[{rotate:'18deg'}]}/> }
+  {prop==='cape'&&<View style={{position:'absolute',top:size*.35,right:size*.07,width:size*.19,height:size*.42,backgroundColor:q,borderRadius:3,transform:[{rotate:'18deg'}]}}/> }
   {prop==='sigil'&&<View style={{position:'absolute',top:size*.3,width:size*.54,height:size*.54,borderWidth:2,borderColor:p,borderRadius:size*.27,opacity:.75}}/>}
   {prop==='turret'&&<View style={{position:'absolute',top:size*.52,width:size*.3,height:size*.19,backgroundColor:q,borderWidth:2,borderColor:p,borderRadius:3}}/>}
  </View>;
