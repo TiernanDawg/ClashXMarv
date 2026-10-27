@@ -3,8 +3,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+
 permissions:
   contents: read
+
 jobs:
   validate:
     name: Validate Expo app
@@ -20,27 +22,52 @@ jobs:
         run: npm test
       - name: Export iOS JavaScript bundle
         run: npx expo export --platform ios
+
   build-ipa:
-    name: Build iOS IPA with EAS
+    name: Build unsigned iOS IPA (free macOS runner)
     needs: validate
-    if: ${{ vars.ENABLE_EAS_BUILD == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Require Expo access token
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Select Xcode
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Add the EXPO_TOKEN repository secret before enabling EAS builds."
-            exit 1
-          fi
-      - name: Install dependencies
+          xcode-select -p
+          xcodebuild -version
+      - name: Install JavaScript dependencies
         run: npm install
-      - name: Build iOS IPA
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli@latest build --platform ios --profile preview --non-interactive
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install CocoaPods
+        run: npx pod-install
+      - name: Build iOS device app without Apple signing
+        run: |
+          xcodebuild \
+            -workspace ios/ClashXMarv.xcworkspace \
+            -scheme ClashXMarv \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/ClashXMarv.app"
+          test -d "$APP_PATH" || { echo "Built app not found at $APP_PATH"; exit 1; }
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/ClashXMarv.app
+          cd build/ipa
+          /usr/bin/zip -qry ../../ClashXMarv-unsigned.ipa Payload
+          cd ../..
+          test -s ClashXMarv-unsigned.ipa
+          ls -lh ClashXMarv-unsigned.ipa
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClashXMarv-unsigned-IPA
+          path: ClashXMarv-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
