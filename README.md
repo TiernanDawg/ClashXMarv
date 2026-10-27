@@ -1,27 +1,23 @@
-# ClashXMarv / Hero Arena
+# Vanguard Arena
+**Draft. Deploy. Dominate.**
 
-An original superhero-themed lane-battler prototype for iOS, built with Expo and React Native. Hero designs and names in this prototype are original archetypes; this project is not affiliated with or endorsed by Marvel or Supercell.
+An original, offline-first superhero-archetype lane battler. No Marvel/Supercell names, assets, sounds, or likenesses are used. Expo SDK 54 / React Native 0.81.4; pure deterministic simulation is separated from the React Native renderer.
 
-## Current status
+## Run
+Node.js 20+: `npm install`, `npm test`, `npm run simulate`, `npm start`.
 
-The repository now contains an initial battle-screen prototype with eight hero archetypes, energy costs/regeneration, towers, unit movement/combat, a basic automatic AI deployment loop, a match timer, and a hero database screen. This is **early prototype code**, not a feature-complete or balanced Clash Royale equivalent. Controls, combat targeting, AI strategy, and match-end logic still require hands-on testing and refinement. No IPA has been built or verified yet.
+## CI / IPA
+Push to main or manually run **Vanguard Arena — quality gates and unsigned IPA**. Quality gates run lint, tests, a 1,000-match headless benchmark, procedural WAV generation/validation, and Expo iOS export before the macOS unsigned IPA job. Download the `Vanguard-Arena` artifact from the Actions run. Artifact retention is 14 days.
 
-## Local development
+The IPA is unsigned and cannot be installed directly. Sideload with a signing tool such as SideStore, AltStore, Sideloadly, or a compatible sideloader, using your own Apple ID/signing profile. A free Apple ID typically requires refreshing the signature every 7 days. This workflow does not sign with or store your Apple credentials.
 
-Requires Node.js 20 or newer.
+## Implemented in this slice
+- Fixed 30 Hz deterministic simulation, seeded PRNG, timestamped deployment commands and state hash.
+- Twenty original cards spanning troops, heroes, spells and buildings; cost, role, target, range, health, damage, speed, splash, deploy delay and animation metadata are data-driven.
+- Four-card hand, next-card cycle, continuous energy, two lanes, bridge/arena coordinates, sentry/command towers, tower wake-up, spell impacts, status effects, buildings, entity cap, tower win and regulation/overtime resolution.
+- Original SVG-style character art is drawn from code and card-specific silhouettes/palettes.
+- Bot deployment, local match screen, collection gallery, settings/debug panel, battle restart.
+- Deterministic regression tests, headless bot benchmark, generated synthesized WAV effects and CI quality gates.
 
-```bash
-npm install
-npm test
-npx expo start
-```
-
-## Configure cloud iOS builds
-
-1. Install the Expo/EAS CLI and sign in to an Expo account.
-2. From the project directory, run `eas init` and follow the prompts to link this app to an EAS project. Commit the resulting `extra.eas.projectId` configuration in `app.json`.
-3. In GitHub, open **Settings → Secrets and variables → Actions** and add a repository secret named `EXPO_TOKEN` containing an Expo access token.
-4. Open **Actions → Build iOS IPA → Run workflow**. The workflow installs dependencies, runs the tests, exports the iOS bundle, then submits a preview build to EAS.
-5. Retrieve the IPA from the completed EAS build page. A workflow run is not proof of a successful build unless its final EAS step succeeds.
-
-The EAS project link and access token must be configured by the repository owner; neither is embedded in source code.
+## Known limitations
+This is a substantial playable foundation, not a finished commercial clone. Full drag placement and sophisticated bridge-aware pathfinding, all hero ultimates, high-quality character rigging/cinematics, persistent collection/economy/crates/quests/season, replay browser/share sheet, 2v2, and the optional online module are not complete. Procedural audio is synthesized atmospheric test audio, not studio sound design. FPS has not been measured on a physical iPhone; the CI benchmark measures simulation throughput only. Match balance data is experimental and not validated through human playtests. The unsigned artifact has not been tested on a physical iPhone until a human installs it with a valid signing method.

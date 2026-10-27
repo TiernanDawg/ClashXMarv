@@ -1,30 +1,30 @@
-name: Validate and Build iOS IPA
+name: Vanguard Arena — quality gates and unsigned IPA
 on:
   workflow_dispatch:
   push:
     branches: [main]
-
 permissions:
   contents: read
-
 jobs:
   validate:
-    name: Validate Expo app
+    name: Lint, deterministic tests, balance benchmark and export
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install dependencies
-        run: npm install
-      - name: Run mechanics tests
-        run: npm test
-      - name: Export iOS JavaScript bundle
-        run: npx expo export --platform ios
-
+          cache: npm
+      - run: npm install
+      - run: npm run lint
+      - run: npm test
+      - name: Headless balance benchmark (1,000 bot matches)
+        run: npm run simulate
+      - name: Generate and verify procedural audio
+        run: npm run audio:verify
+      - run: npx expo export --platform ios
   build-ipa:
-    name: Build unsigned iOS IPA (free macOS runner)
+    name: Build unsigned iOS IPA
     needs: validate
     runs-on: macos-latest
     steps:
@@ -32,42 +32,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Select Xcode
-        run: |
-          xcode-select -p
-          xcodebuild -version
-      - name: Install JavaScript dependencies
-        run: npm install
+          cache: npm
+      - run: echo "Build number: $GITHUB_RUN_NUMBER"
+      - run: npm install
       - name: Generate native iOS project
         run: npx expo prebuild --platform ios --no-install
-      - name: Install CocoaPods
-        run: npx pod-install
+        env:
+          EXPO_PUBLIC_BUILD_NUMBER: ${{ github.run_number }}
+      - run: npx pod-install
       - name: Build iOS device app without Apple signing
         run: |
-          xcodebuild \
-            -workspace ios/ClashXMarv.xcworkspace \
-            -scheme ClashXMarv \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build/ios \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          xcodebuild -workspace ios/VanguardArena.xcworkspace -scheme VanguardArena -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
       - name: Package unsigned IPA
         run: |
-          APP_PATH="build/ios/Build/Products/Release-iphoneos/ClashXMarv.app"
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/VanguardArena.app"
           test -d "$APP_PATH" || { echo "Built app not found at $APP_PATH"; exit 1; }
           mkdir -p build/ipa/Payload
-          cp -R "$APP_PATH" build/ipa/Payload/ClashXMarv.app
-          cd build/ipa
-          /usr/bin/zip -qry ../../ClashXMarv-unsigned.ipa Payload
-          cd ../..
-          test -s ClashXMarv-unsigned.ipa
-          ls -lh ClashXMarv-unsigned.ipa
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+          cp -R "$APP_PATH" build/ipa/Payload/VanguardArena.app
+          cd build/ipa && /usr/bin/zip -qry ../../Vanguard-Arena.ipa Payload && cd ../..
+          test -s Vanguard-Arena.ipa && ls -lh Vanguard-Arena.ipa
+      - uses: actions/upload-artifact@v4
         with:
-          name: ClashXMarv-unsigned-IPA
-          path: ClashXMarv-unsigned.ipa
+          name: Vanguard-Arena
+          path: Vanguard-Arena.ipa
           if-no-files-found: error
           retention-days: 14
