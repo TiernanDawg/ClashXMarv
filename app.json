@@ -1,16 +1,15 @@
 {
   "expo": {
-    "name": "ClashXMarv",
-    "slug": "clashxmarv",
+    "name": "Vanguard Arena",
+    "slug": "vanguard-arena",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.tiernandawg.clashxmarv"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tiernandawg.vanguardarena",
+      "buildNumber": "1"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ]
+    "assetBundlePatterns": ["**/*"]
   }
 }

@@ -1,9 +1,11 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const cards = [
-  {id:'titan',cost:4},{id:'volt',cost:3},{id:'wraith',cost:3},{id:'nova',cost:5},
-  {id:'pulse',cost:3},{id:'sentinel',cost:4},{id:'sparks',cost:2},{id:'rift',cost:4}
-];
-test('deck has eight unique original hero archetypes',()=>{assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);});
-test('all card costs are within the 1-10 energy range',()=>{for(const c of cards)assert.ok(c.cost>=1&&c.cost<=10);});
-test('match clock and overtime constants are positive',()=>{assert.ok(180>0);assert.ok(60>0);});
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {CARDS,validateCards} from '../src/cards.js';
+import {createMatch,stepMatch,queueCommand,deployZoneValid,stateHash,energyRate,RULES,replay} from '../src/sim.js';
+test('20 cards have unique silhouettes, palettes and complete animation sets',()=>{assert.equal(CARDS.length,20);assert.equal(validateCards(),true);assert.equal(new Set(CARDS.map(c=>c.silhouette)).size,20);assert.equal(new Set(CARDS.map(c=>c.palette.join('|'))).size,20);for(const c of CARDS)for(const a of ['spawn','idle','walk','attack','hit','death'])assert.ok(c.animations.includes(a),c.id+': '+a);});
+test('energy starts at five, phase rate changes and cap is enforced',()=>{const m=createMatch(4);assert.equal(m.energy.blue,5);assert.equal(energyRate(m),1);m.elapsed=60;assert.equal(energyRate(m),2);m.elapsed=120;assert.equal(energyRate(m),3);for(let i=0;i<1000;i++)stepMatch(m);assert.ok(m.energy.blue<=10);});
+test('deployment zones block enemy half; spells can target either side',()=>{const m=createMatch(2),troop=CARDS.find(c=>c.id==='micro'),spell=CARDS.find(c=>c.id==='arc');assert.equal(deployZoneValid('blue',troop,4,8,m),false);assert.equal(deployZoneValid('blue',troop,4,26,m),true);assert.equal(deployZoneValid('blue',spell,4,8,m),true);});
+test('deploy command spends energy and rotates the hand',()=>{const m=createMatch(7),card=m.hands.blue[0],before=m.energy.blue;queueCommand(m,{team:'blue',card,x:4,y:26,at:1});stepMatch(m);assert.ok(m.energy.blue<before);assert.equal(m.hands.blue.length,4);assert.notEqual(m.hands.blue[0],card);});
+test('seed and command replay are deterministic',()=>{const commands=[{team:'blue',card:'micro',x:4,y:26,at:1},{team:'red',card:'vanguard',x:13,y:6,at:15}];assert.equal(replay(101,commands,600).hash,replay(101,commands,600).hash);});
+test('deployed units move after their spawn delay',()=>{const m=createMatch(9);queueCommand(m,{team:'blue',card:'vanguard',x:4,y:26,at:1});for(let i=0;i<100;i++)stepMatch(m);assert.ok(m.units.length>0);assert.ok(m.units[0].y<26);});
+test('entity cap blocks further spawns',()=>{const m=createMatch(1);m.units=Array.from({length:RULES.MAX_ENTITIES},(_,i)=>({id:i+1,hp:100,team:'blue'}));queueCommand(m,{team:'blue',card:'micro',x:4,y:26,at:1});stepMatch(m);assert.ok(m.units.length<=RULES.MAX_ENTITIES);});

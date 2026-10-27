@@ -1,0 +1,4 @@
+import {createMatch,stepMatch,queueCommand,runBot,stateHash} from '../src/sim.js';import {CARDS} from '../src/cards.js';
+const games=Number(process.env.MATCHES||1000),ticks=180*30;const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));let wins={blue:0,red:0,draw:0},length=0;
+for(let g=0;g<games;g++){const m=createMatch(g+7919);for(let t=0;t<ticks&&!m.done;t++){if(t%7===0){runBot(m,'blue',2+(g%5));runBot(m,'red',2+((g+2)%5));}for(const e of m.events)if(e.type==='deploy'){stats[e.card].used++;}stepMatch(m);}length+=m.tick;if(m.draw)wins.draw++;else wins[m.winner||'draw']++;for(const e of m.events)if(e.type==='deploy'&&m.winner===e.team)stats[e.card].wins++;}
+console.log(JSON.stringify({games,wins,averageSeconds:Math.round(length/games/30),cards:stats,finalSampleHash:stateHash(createMatch(7919))},null,2));
