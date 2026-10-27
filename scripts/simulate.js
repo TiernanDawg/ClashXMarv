@@ -4,7 +4,7 @@ import {performance} from 'node:perf_hooks';
 const games=Number(process.env.MATCHES||1000),maxTicks=300*30;
 const ARCHETYPES=[['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge'],['jade','void','aegis','stormwarden','micro','turret','photon','cryo'],['vanguard','falcon','weaver','forgeheart','turret','tesla','overload','arc'],['micro','prowler','merc','starforge','beacon','photon','cryo','aegis'],['jade','forgeheart','stormwarden','void','turret','tesla','beacon','arc']];
 const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));
-const wins={blue:0,red:0,draw:0};let ticksTotal=0,peakEntities=0,usedEvents=0;const firstTowerKillSeconds=[];
+const wins={blue:0,red:0,draw:0};let ticksTotal=0,peakEntities=0,usedEvents=0;const towerKillSeconds=[];
 const started=performance.now();
 for(let g=0;g<games;g++){
  const m=createMatch(g+7919,{deck:ARCHETYPES[g%ARCHETYPES.length]}),seen=new Set(),killSeen=new Set(),usedByTeam={blue:[],red:[]};
@@ -18,4 +18,4 @@ for(let g=0;g<games;g++){
  if(m.winner)for(const card of usedByTeam[m.winner])if(stats[card])stats[card].wins++;
 }
 const ms=performance.now()-started;
-console.log(JSON.stringify({games,wins,averageMatchSeconds:Math.round(ticksTotal/games/30),firstTowerKillAverageSeconds:firstTowerKillSeconds.length?Math.round(firstTowerKillSeconds.reduce((a,b)=>a+b,0)/firstTowerKillSeconds.length):null,simulationTicks:ticksTotal,wallSeconds:+(ms/1000).toFixed(2),ticksPerSecond:Math.round(ticksTotal/(ms/1000)),peakEntities,deployments:usedEvents,cards:stats,finalSampleHash:stateHash(createMatch(7919))},null,2));
+console.log(JSON.stringify({games,wins,averageMatchSeconds:Math.round(ticksTotal/games/30),averageTowerKillSeconds:firstTowerKillSeconds.length?Math.round(firstTowerKillSeconds.reduce((a,b)=>a+b,0)/firstTowerKillSeconds.length):null,simulationTicks:ticksTotal,wallSeconds:+(ms/1000).toFixed(2),ticksPerSecond:Math.round(ticksTotal/(ms/1000)),peakEntities,deployments:usedEvents,cards:stats,finalSampleHash:stateHash(createMatch(7919))},null,2));
