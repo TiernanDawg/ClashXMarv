@@ -11,7 +11,7 @@ for(let g=0;g<games;g++){
  for(let t=0;t<maxTicks&&!m.done;t++){
   if(t%12===0){runBot(m,'blue',1+g%6);runBot(m,'red',1+(g+2)%6);}
   stepMatch(m);peakEntities=Math.max(peakEntities,m.units.length);
-  for(const e of m.events){if(e.type==='tower-destroyed'||e.type==='command-destroyed'){const k=e.tick+'|'+e.type+'|'+e.id;if(!killSeen.has(k)){killSeen.add(k);if(e.type==='tower-destroyed')towerKillSeconds.push(e.tick/30);}}if(e.type!=='deploy')continue;const key=e.tick+'|'+e.team+'|'+e.card;if(seen.has(key))continue;seen.add(key);usedEvents++;if(stats[e.card])stats[e.card].used++;if(usedByTeam[e.team])usedByTeam[e.team].add(e.card);}
+  for(const e of m.events){if(e.type==='tower-destroyed'||e.type==='command-destroyed'){const k=e.tick+'|'+e.type+'|'+e.id;if(!killSeen.has(k)){killSeen.add(k);if(e.type==='tower-destroyed')towerKillSeconds.push(e.tick/30);}}if(e.type!=='deploy'&&e.type!=='spell')continue;const key=e.tick+'|'+e.team+'|'+e.card;if(seen.has(key))continue;seen.add(key);usedEvents++;if(stats[e.card])stats[e.card].used++;if(usedByTeam[e.team])usedByTeam[e.team].add(e.card);}
  }
  ticksTotal+=m.tick;
  if(m.draw)wins.draw++;else wins[m.winner||'draw']++;
