@@ -1,4 +1,20 @@
-import {createMatch,stepMatch,queueCommand,runBot,stateHash} from '../src/sim.js';import {CARDS} from '../src/cards.js';
-const games=Number(process.env.MATCHES||1000),ticks=180*30;const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));let wins={blue:0,red:0,draw:0},length=0;
-for(let g=0;g<games;g++){const m=createMatch(g+7919);for(let t=0;t<ticks&&!m.done;t++){if(t%7===0){runBot(m,'blue',2+(g%5));runBot(m,'red',2+((g+2)%5));}for(const e of m.events)if(e.type==='deploy'){stats[e.card].used++;}stepMatch(m);}length+=m.tick;if(m.draw)wins.draw++;else wins[m.winner||'draw']++;for(const e of m.events)if(e.type==='deploy'&&m.winner===e.team)stats[e.card].wins++;}
-console.log(JSON.stringify({games,wins,averageSeconds:Math.round(length/games/30),cards:stats,finalSampleHash:stateHash(createMatch(7919))},null,2));
+import {createMatch,stepMatch,queueCommand,runBot,stateHash} from '../src/sim.js';
+import {CARDS} from '../src/cards.js';
+import {performance} from 'node:perf_hooks';
+const games=Number(process.env.MATCHES||1000),maxTicks=180*30;
+const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));
+const wins={blue:0,red:0,draw:0};let ticksTotal=0,peakEntities=0,usedEvents=0;
+const started=performance.now();
+for(let g=0;g<games;g++){
+ const m=createMatch(g+7919),seen=new Set(),usedByTeam={blue:[],red:[]};
+ for(let t=0;t<maxTicks&&!m.done;t++){
+  if(t%12===0){runBot(m,'blue',1+g%6);runBot(m,'red',1+(g+2)%6);}
+  stepMatch(m);peakEntities=Math.max(peakEntities,m.units.length);
+  for(const e of m.events){if(e.type!=='deploy')continue;const key=e.tick+'|'+e.team+'|'+e.card;if(seen.has(key))continue;seen.add(key);usedEvents++;if(stats[e.card])stats[e.card].used++;if(usedByTeam[e.team])usedByTeam[e.team].push(e.card);}
+ }
+ ticksTotal+=m.tick;
+ if(m.draw)wins.draw++;else wins[m.winner||'draw']++;
+ if(m.winner)for(const card of usedByTeam[m.winner])if(stats[card])stats[card].wins++;
+}
+const ms=performance.now()-started;
+console.log(JSON.stringify({games,wins,averageMatchSeconds:Math.round(ticksTotal/games/30),simulationTicks:ticksTotal,wallSeconds:+(ms/1000).toFixed(2),ticksPerSecond:Math.round(ticksTotal/(ms/1000)),peakEntities,deployments:usedEvents,cards:stats,finalSampleHash:stateHash(createMatch(7919))},null,2));
