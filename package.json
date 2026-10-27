@@ -1,26 +1,6 @@
 {
-  "name": "vanguard-arena",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "main": "node_modules/expo/AppEntry.js",
-  "scripts": {
-    "start": "expo start",
-    "ios": "expo start --ios",
-    "test": "node --test tests/*.test.js",
-    "lint": "node scripts/lint.js",
-    "simulate": "node scripts/simulate.js",
-    "audio:generate": "node scripts/generate-audio.js",
-    "audio:verify": "npm run audio:generate && node scripts/verify-audio.js"
-  },
-  "dependencies": {
-    "expo": "~54.0.0",
-    "expo-status-bar": "~3.0.0",
-    "react": "19.1.0",
-    "react-native": "0.81.4"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "babel-preset-expo": "~54.0.0"
-  }
+"name":"vanguard-arena","version":"1.0.0","private":true,"main":"node_modules/expo/AppEntry.js",
+"scripts":{"start":"expo start","ios":"expo start --ios","test":"node --test tests/*.test.js","lint":"eslint App.js src scripts tests eslint.config.js","simulate":"MATCHES=1000 node scripts/simulate.js","audio:generate":"node scripts/generate-audio.js","audio:verify":"npm run audio:generate && node scripts/verify-audio.js"},
+"dependencies":{"expo":"~54.0.0","expo-status-bar":"~3.0.0","react":"19.1.0","react-native":"0.81.4","react-native-svg":"15.12.1"},
+"devDependencies":{"@babel/core":"^7.25.2","babel-preset-expo":"~54.0.0","eslint":"^9.39.0"}
 }
