@@ -1,0 +1,1 @@
+export default [{files:['**/*.js','**/*.mjs'],languageOptions:{ecmaVersion:'latest',sourceType:'module',parserOptions:{ecmaFeatures:{jsx:true}},globals:{console:'readonly',process:'readonly',Buffer:'readonly',__dirname:'readonly',require:'readonly',module:'readonly'}},rules:{'no-undef':'error','no-unreachable':'error','no-constant-condition':'warn','no-unused-vars':'off'}}];
