@@ -1,7 +1,8 @@
 import {createMatch,stepMatch,queueCommand,runBot,stateHash} from '../src/sim.js';
 import {CARDS} from '../src/cards.js';
 import {performance} from 'node:perf_hooks';
-const games=Number(process.env.MATCHES||1000),maxTicks=180*30;\nconst ARCHETYPES=[['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge'],['jade','void','aegis','stormwarden','micro','turret','photon','cryo'],['vanguard','falcon','weaver','forgeheart','turret','tesla','overload','arc'],['micro','prowler','merc','starforge','beacon','photon','cryo','aegis'],['jade','forgeheart','stormwarden','void','turret','tesla','beacon','arc']];
+const games=Number(process.env.MATCHES||1000),maxTicks=180*30;
+const ARCHETYPES=[['micro','falcon','vanguard','prowler','merc','weaver','wildclaw','starforge'],['jade','void','aegis','stormwarden','micro','turret','photon','cryo'],['vanguard','falcon','weaver','forgeheart','turret','tesla','overload','arc'],['micro','prowler','merc','starforge','beacon','photon','cryo','aegis'],['jade','forgeheart','stormwarden','void','turret','tesla','beacon','arc']];
 const stats=Object.fromEntries(CARDS.map(c=>[c.id,{used:0,wins:0}]));
 const wins={blue:0,red:0,draw:0};let ticksTotal=0,peakEntities=0,usedEvents=0;
 const started=performance.now();
