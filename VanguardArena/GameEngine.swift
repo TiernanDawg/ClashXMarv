@@ -206,6 +206,13 @@ final class BattleModel: ObservableObject {
             }
             entities[i].x = min(17.5, max(0.5, entities[i].x)); entities[i].y = min(31.5, max(0.5, entities[i].y))
         }
+        for tower in entities where tower.tower && !tower.king && !tower.alive {
+            if overtime {
+                finish(tower.team == .blue ? "DEFEAT" : "VICTORY")
+            }
+            if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
+            else { blueCrowns = min(3, blueCrowns + 1) }
+        }
         entities.removeAll { !$0.alive }
     }
     private func nearestTarget(from entity: BattleEntity, range: Double) -> Int? {
@@ -218,10 +225,6 @@ final class BattleModel: ObservableObject {
         }
     }
     private func resolveTowers() {
-        let fallen = entities.filter { $0.tower && !$0.king && !$0.alive }
-        for tower in fallen {
-            if tower.team == .blue { redCrowns = min(3, redCrowns + 1) } else { blueCrowns = min(3, blueCrowns + 1) }
-        }
         if entities.contains(where: { $0.tower && $0.king && $0.team == .blue && !$0.alive }) { redCrowns = 3; finish("DEFEAT") }
         if entities.contains(where: { $0.tower && $0.king && $0.team == .red && !$0.alive }) { blueCrowns = 3; finish("VICTORY") }
     }

@@ -40,7 +40,7 @@ final class ArenaScene: SKScene {
     }
     func render(_ model: BattleModel) {
         let alive = Set(model.entities.map(\.id))
-        for id in entityNodes.keys where !alive.contains(id) { entityNodes[id]?.removeFromParent(); entityNodes.removeValue(forKey: id) }
+        for id in Array(entityNodes.keys) where !alive.contains(id) { entityNodes[id]?.removeFromParent(); entityNodes.removeValue(forKey: id) }
         for entity in model.entities {
             let node: SKNode
             if let existing = entityNodes[entity.id] { node = existing }

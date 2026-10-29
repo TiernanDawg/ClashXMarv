@@ -2,7 +2,7 @@ import SwiftUI
 import SpriteKit
 import UIKit
 
-private enum Screen { case home, deck, cards, ladder, profile, settings, battle, shop, log }
+private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log }
 private let ink = Color(red: 0.035, green: 0.055, blue: 0.10)
 private let panel = Color(red: 0.075, green: 0.105, blue: 0.17)
 private let accent = Color(red: 0.39, green: 0.79, blue: 0.98)
@@ -48,7 +48,6 @@ struct RootView: View {
             scene.render(battle)
             if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
         }
-        .onChange(of: profile.profile.settings.reduceMotion) { _ in }
     }
 
     private var home: some View {
@@ -290,7 +289,7 @@ struct RootView: View {
                     Text(String(format: "%.1f", battle.blueElixir)).font(.caption.bold().monospacedDigit()).frame(width: 30)
                 }.padding(.horizontal, 12)
                 HStack(spacing: 7) {
-                    ForEach(Array(battle.hand.enumerated()), id: \.element) { _, id in
+                    ForEach(battle.hand, id: \.self) { id in
                         if let card = CardCatalog.byID[id] {
                             Button { battle.select(id); scene.render(battle) } label: {
                                 VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
