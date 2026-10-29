@@ -45,7 +45,7 @@ jobs:
           set -euo pipefail
           DEVICE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
           test -n "$DEVICE_ID"
-          xcodebuild test -project VanguardArena.xcodeproj -scheme VanguardArena -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" CODE_SIGNING_ALLOWED=NO
+          xcodebuild test -project VanguardArena.xcodeproj -scheme VanguardArena -configuration Release -destination "platform=iOS Simulator,id=$DEVICE_ID" CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG
 
       - name: Build for iOS
         run: |
