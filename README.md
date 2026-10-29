@@ -39,9 +39,20 @@ The CI workflow validates all 91 roster names, runs XcodeGen, builds and archive
 - **Accessibility:** native SwiftUI controls, VoiceOver labels on key controls, team color distinction, reduce-motion, high-contrast and large-text preferences are provided.
 - **Progress safety:** saves use atomic JSON writes, a schema version, validated card IDs and a safe fallback if decoding fails.
 
-## Scope notes
+## Implemented game systems
 
-This is a native, buildable game implementation, not a claim of byte-for-byte mechanical parity with a commercial game. The 91-card roster is present and data-driven, but card stats are tuned starting values, not extracted proprietary balance data. Some analog mechanics are represented through shared behaviors rather than individually animated bespoke logic. Procedural sound is synthesized in code. The unsigned IPA still requires signing before installation. Physical-device frame-rate, battery, accessibility, and balance validation must be measured on real hardware; CI compilation alone does not establish 60/120 FPS or a crash-free release.
+- **Battle:** deterministic 20 Hz simulation, 3-minute regulation plus 2-minute overtime, correct x1/x2/x3 elixir phase boundaries, card cycling, random starting hand, sleeping/waking King Towers, princess-tower deployment pockets, crowns, sudden death, and remaining-tower-HP tiebreak.
+- **Placement/pathing:** tap-select and direct drag-to-deploy, finger-offset ghost, valid/invalid tile colors, snap-to-tile placement, tile-change haptics, invalid-release cancellation, ground bridge steering, flying movement, soft collision, and target filters.
+- **Roster:** all 91 requested parody names are present. The data-driven catalog includes per-analog stat profiles for most classic roles, rarity, elixir, target type, range, speed, hit speed, level scaling, and composed behavior flags.
+- **Behavior components:** swarm deployment, ranged/splash attacks, flying, tunnel deployment, charge, jump impact, ramping beam, spawners, death-spawn, poison/earthquake/graveyard timed effects, stun, slow, invisibility, clone, Mirror, rage, shield absorption, healer aura, and Elixir Collector generation.
+- **AI:** the rival tracks its own hand, cycle and elixir, responds to threats, values air defense and grouped spell value, counter-pushes when unpressured, varies lanes, and reacts faster across trophy bands without free elixir.
+- **Meta:** trophy road and 13 procedural arena palettes, King XP, card levels 1–13 with rarity-dependent copy/gold requirements, average-level bot matching, four chest slots with live ETAs, a four-hour free chest, a 10-crown daily chest, daily quests, a free monthly 10-tier reward track, gold-only card-copy shop, profile, battle log, and replayable saved player deployment actions.
+- **Polish/settings:** procedural menu/battle music with elixir-phase layers, synthesized SFX, six cooldown-limited emotes, opponent-emote mute, hit squash/flash, damage numbers, crown/tower events, victory confetti, high contrast, reduce motion, large text, left-handed hand order, haptics, and pause/save when the app becomes inactive.
+- **Diagnostics:** `BattleSelfTest.run(matches: 1_000)` is available in DEBUG builds to simulate bot-vs-bot matches and assert finite values, arena bounds, prolonged stationary units without nearby targets, and match completion.
+
+## Validation boundaries
+
+The implementation uses original procedural presentation and a shared behavior engine; it does not reproduce proprietary assets or extracted game code. Card values are close-role tuning approximations rather than an authoritative historical balance dump, and some effects are simplified. It does not yet have a unique bespoke idle/walk/attack/death rig and unique attack sound for every card, exact proprietary spell falloff for every analog, full live-battle state serialization after force-quit, or a completed 1,000-match report wired into CI. The unsigned IPA must be signed before installation. Drag/drop, accessibility, battery/thermal behavior, 60/120 FPS, and crash-free operation still require real-device validation.
 
 
 ## Research notes and sources

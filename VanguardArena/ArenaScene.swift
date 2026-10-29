@@ -9,6 +9,7 @@ final class ArenaScene: SKScene {
     var hapticsEnabled = true
     var themeIndex = 0
     private var lastHP: [Int: Double] = [:]
+    private var lastPositions: [Int: CGPoint] = [:]
     private var arenaPalette: (UIColor, UIColor, UIColor, UIColor) {
         let palettes: [(UIColor, UIColor, UIColor, UIColor)] = [
             (.systemGreen, UIColor(red: 0.17, green: 0.43, blue: 0.29, alpha: 1), UIColor(red: 0.42, green: 0.62, blue: 0.37, alpha: 1), .systemBlue),
@@ -51,6 +52,7 @@ final class ArenaScene: SKScene {
         removeAllChildren()
         entityNodes.removeAll()
         lastHP.removeAll()
+        lastPositions.removeAll()
         let field = SKShapeNode(rect: CGRect(x: 2, y: 2, width: size.width - 4, height: size.height - 4), cornerRadius: 12)
         field.fillColor = arenaPalette.1
         field.strokeColor = arenaPalette.2
@@ -100,6 +102,7 @@ final class ArenaScene: SKScene {
             entityNodes[id]?.removeFromParent()
             entityNodes.removeValue(forKey: id)
             lastHP.removeValue(forKey: id)
+            lastPositions.removeValue(forKey: id)
         }
         for entity in model.entities {
             let node: SKNode
@@ -121,7 +124,13 @@ final class ArenaScene: SKScene {
                 flash.run(.sequence([.fadeOut(withDuration: 0.12), .removeFromParent()]))
             }
             lastHP[entity.id] = entity.hp
-            node.position = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
+            let newPosition = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
+            if let oldPosition = lastPositions[entity.id], hypot(Double(newPosition.x - oldPosition.x), Double(newPosition.y - oldPosition.y)) > 0.6, let body = node.childNode(withName: "body") {
+                body.removeAction(forKey: "walk-squash")
+                body.run(.sequence([.scaleX(to: 0.93, duration: 0.06), .scaleX(to: 1.0, duration: 0.09)]), withKey: "walk-squash")
+            }
+            lastPositions[entity.id] = newPosition
+            node.position = newPosition
             node.zPosition = CGFloat(entity.y)
             node.alpha = (CardCatalog.byID[entity.cardID]?.behavior.contains(.invisible) == true && !entity.hasAttacked) ? 0.28 : 1
             if let badge = node.childNode(withName: "hp") as? SKShapeNode {
@@ -176,14 +185,41 @@ final class ArenaScene: SKScene {
 
         let bodySize = CGSize(width: entity.king ? tileWidth * 1.45 : (entity.tower ? tileWidth * 1.2 : tileWidth),
                               height: entity.king ? tileHeight * 1.45 : (entity.tower ? tileHeight * 1.2 : tileHeight))
-        let body = SKShapeNode(rectOf: bodySize, cornerRadius: entity.tower ? 4 : 8)
+        let definition = CardCatalog.byID[entity.cardID]
+        let body: SKShapeNode
+        if entity.tower || definition?.kind == .building {
+            body = SKShapeNode(rectOf: bodySize, cornerRadius: 4)
+        } else if definition?.behavior.contains(.flying) == true {
+            body = SKShapeNode(ellipseOf: bodySize)
+        } else if definition?.behavior.contains(.shield) == true {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: 0, y: bodySize.height / 2))
+            path.addLine(to: CGPoint(x: bodySize.width / 2, y: bodySize.height / 4))
+            path.addLine(to: CGPoint(x: bodySize.width / 2, y: -bodySize.height / 4))
+            path.addLine(to: CGPoint(x: 0, y: -bodySize.height / 2))
+            path.addLine(to: CGPoint(x: -bodySize.width / 2, y: -bodySize.height / 4))
+            path.addLine(to: CGPoint(x: -bodySize.width / 2, y: bodySize.height / 4))
+            path.closeSubpath()
+            body = SKShapeNode(path: path)
+        } else if definition?.behavior.contains(.splash) == true {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: 0, y: bodySize.height / 2))
+            path.addLine(to: CGPoint(x: bodySize.width / 2, y: 0))
+            path.addLine(to: CGPoint(x: 0, y: -bodySize.height / 2))
+            path.addLine(to: CGPoint(x: -bodySize.width / 2, y: 0))
+            path.closeSubpath()
+            body = SKShapeNode(path: path)
+        } else {
+            body = SKShapeNode(rectOf: bodySize, cornerRadius: 8)
+        }
         body.name = "body"
         body.fillColor = entity.team == .blue ? .systemBlue : .systemRed
         body.strokeColor = .white.withAlphaComponent(0.85)
         body.lineWidth = 1.2
+        body.run(.repeatForever(.sequence([.scale(to: 1.035, duration: 0.38), .scale(to: 1.0, duration: 0.38)])), withKey: "idle-breathe")
         root.addChild(body)
 
-        let label = SKLabelNode(text: entity.king ? "♛" : (entity.tower ? "◆" : String(CardCatalog.byID[entity.cardID]?.name.first ?? "•")))
+        let label = SKLabelNode(text: entity.king ? "♛" : (entity.tower ? "◆" : String(CardCatalog.byID[entity.cardID]?.name.prefix(2).uppercased() ?? "•")))
         label.fontName = "AvenirNext-Bold"
         label.fontSize = max(8, min(14, tileWidth * 0.62))
         label.verticalAlignmentMode = .center

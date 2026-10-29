@@ -306,16 +306,33 @@ struct RootView: View {
             VStack(spacing: 14) {
                 header("Daily Supply", back: .home)
                 HStack { Label("\(profile.profile.gold) gold", systemImage: "circle.hexagongrid.fill").foregroundStyle(gold); Spacer(); Label("\(profile.profile.gems) gems", systemImage: "diamond.fill").foregroundStyle(accent) }.font(.subheadline.bold()).padding(.horizontal, 18)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let remaining = max(0, 4 * 3600 - context.date.timeIntervalSince(profile.profile.lastFreeChest))
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) { Text("FREE CHEST").font(.headline.bold()); Text(remaining <= 0 ? "Ready to claim" : "Refreshes in \(eta(remaining))").font(.caption).foregroundStyle(.white.opacity(0.55)) }
+                        Spacer()
+                        Button(remaining <= 0 ? "CLAIM" : "WAIT") { claimFreeChest() }.font(.caption.bold()).padding(11).background(remaining <= 0 ? gold : .gray.opacity(0.25), in: Capsule()).foregroundStyle(remaining <= 0 ? ink : .white.opacity(0.5)).disabled(remaining > 0)
+                    }.padding(12).background(panel, in: RoundedRectangle(cornerRadius: 14)).padding(.horizontal, 16)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack { Text("CROWN CHEST").font(.headline.bold()); Spacer(); Text("\(profile.profile.dailyCrowns)/10 crowns").font(.caption.bold()).foregroundStyle(gold) }
+                    ProgressView(value: Double(profile.profile.dailyCrowns), total: 10).tint(gold)
+                    Text("Earn 10 crowns in a day for 300 gold and 5 gems.").font(.caption).foregroundStyle(.white.opacity(0.5))
+                }.padding(.horizontal, 18)
                 VStack(alignment: .leading, spacing: 10) {
                     Text("CHEST SLOTS").font(.headline.bold()).tracking(1)
                     ForEach(0..<4, id: \.self) { slot in
                         if let chest = (profile.profile.meta?.chestSlots ?? []).indices.contains(slot) ? profile.profile.meta?.chestSlots[slot] : nil {
-                            HStack(spacing: 12) {
-                                Image(systemName: "shippingbox.fill").font(.title2).foregroundStyle(chest.isReady ? gold : accent).frame(width: 42, height: 42).background(panel, in: RoundedRectangle(cornerRadius: 12))
-                                VStack(alignment: .leading, spacing: 3) { Text("\(chest.type) Chest").font(.subheadline.bold()); Text(chest.isReady ? "Ready to open" : "Unlocks in \(eta(chest.remaining))").font(.caption).foregroundStyle(.white.opacity(0.58)) }
-                                Spacer()
-                                if chest.isReady { Button("OPEN") { claimChestSlot(chest.id) }.font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 9).background(gold, in: Capsule()).foregroundStyle(ink) }
-                            }.padding(11).background(panel, in: RoundedRectangle(cornerRadius: 15))
+                            TimelineView(.periodic(from: .now, by: 1)) { context in
+                                let remaining = max(0, chest.duration - context.date.timeIntervalSince(chest.startedAt))
+                                let ready = remaining <= 0
+                                HStack(spacing: 12) {
+                                    Image(systemName: "shippingbox.fill").font(.title2).foregroundStyle(ready ? gold : accent).frame(width: 42, height: 42).background(panel, in: RoundedRectangle(cornerRadius: 12))
+                                    VStack(alignment: .leading, spacing: 3) { Text("\(chest.type) Chest").font(.subheadline.bold()); Text(ready ? "Ready to open" : "Unlocks in \(eta(remaining))").font(.caption).foregroundStyle(.white.opacity(0.58)) }
+                                    Spacer()
+                                    if ready { Button("OPEN") { claimChestSlot(chest.id) }.font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 9).background(gold, in: Capsule()).foregroundStyle(ink) }
+                                }.padding(11).background(panel, in: RoundedRectangle(cornerRadius: 15))
+                            }
                         } else {
                             HStack { Image(systemName: "lock.open").foregroundStyle(.white.opacity(0.35)); Text("Empty slot · win a battle to earn a chest").font(.caption).foregroundStyle(.white.opacity(0.55)); Spacer() }.padding(13).background(panel.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
                         }
@@ -570,7 +587,7 @@ struct RootView: View {
         lastResultSaved = true
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
-        scene.battleHolder.model = model
+        scene.battle = model
         scene.onDrop = { x, y in
             let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
             if deployed {
@@ -593,7 +610,7 @@ struct RootView: View {
         battleHolder.model = model; lastResultSaved = false
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
-        scene.battleHolder.model = model
+        scene.battle = model
         scene.scaleMode = .resizeFill
         scene.onDrop = { x, y in
             let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
@@ -655,16 +672,21 @@ struct CardGlyph: View {
 }
 struct CardDetailView: View {
     let card: CardDefinition
+    @EnvironmentObject private var profile: ProfileStore
+    private var cardLevel: Int { max(1, min(13, profile.profile.levels[card.id] ?? 1)) }
+    private var levelMultiplier: Double { Balance.levelMultiplier(cardLevel) }
+    private var costLabel: String { card.behavior.contains(.mirror) ? "LAST CARD + 1" : "\(card.cost) ELIXIR" }
     var body: some View {
         ZStack { ink.ignoresSafeArea(); ScrollView { VStack(spacing: 16) {
             CardGlyph(card: card, size: 116).padding(.top, 30)
             Text(card.name).font(.system(size: 28, weight: .black, design: .rounded))
-            Text("\(card.rarity.rawValue.uppercased())  ·  \(card.kind.rawValue.uppercased())  ·  \(card.cost) ELIXIR").font(.caption.bold()).tracking(1).foregroundStyle(accent)
+            Text("\(card.rarity.rawValue.uppercased())  ·  \(card.kind.rawValue.uppercased())  ·  \(costLabel)").font(.caption.bold()).tracking(1).foregroundStyle(accent)
             Text(card.description).font(.body).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.72)).padding(.horizontal, 24)
             VStack(spacing: 0) {
-                statRow("Hit points", card.kind == .spell ? "—" : "\(Int(card.hp))")
-                statRow("Damage", "\(Int(card.damage))")
-                statRow("Damage per second", card.kind == .spell ? "Instant" : "\(Int(card.dps))")
+                statRow("Card level", "\(cardLevel)/13")
+                statRow("Hit points", card.kind == .spell ? "—" : "\(Int(card.hp * levelMultiplier))")
+                statRow("Damage", "\(Int(card.damage * levelMultiplier))")
+                statRow("Damage per second", card.kind == .spell ? "Instant" : "\(Int(card.dps * levelMultiplier))")
                 statRow("Range", String(format: "%.1f tiles", card.range))
                 statRow("Speed", card.speed == 0 ? "Stationary" : "\(Int(card.speed * 60)) tiles/min")
                 statRow("Hit speed", String(format: "%.2f sec", card.hitSpeed))

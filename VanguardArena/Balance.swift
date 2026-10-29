@@ -11,9 +11,9 @@ enum Balance {
     static let maxElixir = 10.0
     static let deployDelay = 1.0
     static let sightRange = 5.5
-    static func levelMultiplier(_ level: Int) -> Double { pow(1.10, Double(max(1, min(13, level)) - 1)) }
+    static func levelMultiplier(_ level: Int) -> Double { pow(1.10, Double(max(1, min(13, level)) - 9)) }
     static func elixirInterval(elapsed: Double, overtime: Bool) -> Double {
-        if overtime && elapsed >= 60 { return 0.93 }
+        if overtime && elapsed >= 240 { return 0.93 }
         if elapsed >= 120 { return 1.4 }
         return 2.8
     }
