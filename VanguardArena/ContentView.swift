@@ -1,6 +1,7 @@
 import SwiftUI
 import SpriteKit
 import UIKit
+import Combine
 
 private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log, tutorial }
 private let ink = Color(red: 0.035, green: 0.055, blue: 0.10)
@@ -12,7 +13,8 @@ struct RootView: View {
     @EnvironmentObject private var profile: ProfileStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var screen: Screen = .home
-    @State private var battle: BattleModel?
+    @StateObject private var battleHolder = BattleHolder()
+    private var battle: BattleModel? { battleHolder.model }
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
     @State private var detail: CardDefinition?
     @State private var lastResultSaved = false
@@ -550,23 +552,24 @@ struct RootView: View {
                 if let result = battle.result {
                     VStack(spacing: 8) {
                         Text(result).font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(result == "VICTORY" ? gold : .white)
-                        Button("CONTINUE") { screen = .home; self.battle = nil; lastResultSaved = false }.buttonStyle(PrimaryButtonStyle())
+                        Button("CONTINUE") { screen = .home; self.battleHolder.model = nil; lastResultSaved = false }.buttonStyle(PrimaryButtonStyle())
                     }.padding(.horizontal, 24).padding(.bottom, 10)
                 } else {
                     Text(battle.selectedCard == nil ? "Choose a card, then tap or drag onto your side." : "Drag across the arena and release to deploy.").font(.caption2).foregroundStyle(.white.opacity(0.55)).padding(.bottom, 4)
                 }
             }
-        }.padding(.top, 4).coordinateSpace(name: "battle")
+        }.padding(.top, 4).coordinateSpace(name: "battle").overlay { if battle?.result == "VICTORY" { ConfettiView().allowsHitTesting(false) } }
     }
     private func updateMusic() {
         let phase = screen == .battle ? ((battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)) : 1
         ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, phase: phase, enabled: profile.profile.settings.music)
     }
     private func startReplay(_ record: BattleRecord) {
-        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true, cardLevels: profile.profile.levels)
-        battle = model
+        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
+        battleHolder.model = model
         lastResultSaved = true
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
+        scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
         scene.battle = model
         scene.onDrop = { x, y in
             let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
@@ -586,9 +589,10 @@ struct RootView: View {
         scene.render(model)
     }
     private func startBattle() {
-        let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels)
+        let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
         battle = model; lastResultSaved = false
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
+        scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
         scene.battle = model
         scene.scaleMode = .resizeFill
         scene.onDrop = { x, y in
@@ -680,5 +684,37 @@ struct PrimaryButtonStyle: ButtonStyle {
         configuration.label.font(.headline.bold()).foregroundStyle(ink).frame(maxWidth: .infinity).frame(height: 52)
             .background(accent.opacity(configuration.isPressed ? 0.7 : 1), in: RoundedRectangle(cornerRadius: 15))
             .scaleEffect(configuration.isPressed ? 0.98 : 1).animation(.easeOut(duration: 0.12), value: configuration.isPressed).padding(.horizontal, 16)
+    }
+}
+@MainActor
+final class BattleHolder: ObservableObject {
+    @Published var model: BattleModel? {
+        didSet {
+            subscription = nil
+            subscription = model?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        }
+    }
+    private var subscription: AnyCancellable?
+}
+
+private struct ConfettiView: View {
+    @State private var phase: CGFloat = 0
+    private let colors: [Color] = [.yellow, .cyan, .pink, .green, .purple, .orange]
+    var body: some View {
+        GeometryReader { geometry in
+            ForEach(0..<36, id: \.self) { index in
+                let width = max(1, Int(geometry.size.width))
+                let height = max(1, Int(geometry.size.height))
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(colors[index % colors.count])
+                    .frame(width: 4, height: 8)
+                    .rotationEffect(.degrees(Double(index * 37)))
+                    .position(
+                        x: CGFloat((index * 47) % width),
+                        y: CGFloat((index * 31) % height) + phase * geometry.size.height
+                    )
+            }
+        }
+        .onAppear { withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) { phase = 1 } }
     }
 }

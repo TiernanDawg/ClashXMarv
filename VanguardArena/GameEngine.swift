@@ -62,6 +62,7 @@ final class BattleModel: ObservableObject {
     private let isReplaying: Bool
     private let cardLevels: [String: Int]
     private let botLevel: Int
+    private let trophyBand: Int
     private var replayIndex = 0
     private var redQueue: [String] = []
     private var redHand: [String] = []
@@ -86,12 +87,13 @@ final class BattleModel: ObservableObject {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
         return String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)
     }
-    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:]) {
+    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:], trophies: Int = 0) {
         let valid = deck.filter { CardCatalog.byID[$0] != nil }
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
         originalDeck = chosen
         self.cardLevels = cardLevels
+        trophyBand = max(0, min(12, trophies / 300))
         let levelTotal = chosen.reduce(0) { $0 + max(1, min(13, cardLevels[$1] ?? 1)) }
         botLevel = max(1, min(13, Int((Double(levelTotal) / Double(max(1, chosen.count))).rounded())))
         self.replayActions = replayActions.sorted { $0.time < $1.time }
@@ -110,6 +112,7 @@ final class BattleModel: ObservableObject {
         redHand = Array(redQueue.prefix(4))
         addTower(.blue, 3.2, 2, false); addTower(.blue, 14.8, 2, false); addTower(.blue, 9, 0.7, true)
         addTower(.red, 3.2, 30, false); addTower(.red, 14.8, 30, false); addTower(.red, 9, 31.3, true)
+        aiClock = max(1.2, 3.4 - Double(trophyBand) * 0.12) + Double(random() % 100) / 100
     }
     private func random() -> UInt64 {
         rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17
@@ -281,7 +284,7 @@ final class BattleModel: ObservableObject {
             opponentEmoteClock = 22 + Double(random() % 180) / 10
         }
         aiClock -= Balance.tick
-        if aiClock <= 0 { playAI(); aiClock = 1.8 + Double(random() % 260) / 100 }
+        if aiClock <= 0 { playAI(); aiClock = max(1.1, 2.6 - Double(trophyBand) * 0.08) + Double(random() % 260) / 100 }
         blueAIClock -= Balance.tick
         if automatedBlue && blueAIClock <= 0 {
             playBlueAI()
@@ -299,19 +302,69 @@ final class BattleModel: ObservableObject {
         }
         if bannerClock <= 0 { banner = "" }
     }
+    private func chooseBotCard(hand botHand: [String], team: Team, elixir: Double) -> CardDefinition? {
+        let affordable = botHand.compactMap { CardCatalog.byID[$0] }.filter { $0.cost <= Int(floor(elixir)) }
+        guard !affordable.isEmpty else { return nil }
+        let enemy: Team = team == .blue ? .red : .blue
+        let threats = entities.filter { entity in
+            guard entity.alive && !entity.tower && entity.team == enemy else { return false }
+            return team == .red ? entity.y > 20 : entity.y < 12
+        }
+        let hasAirThreat = threats.contains { CardCatalog.byID[$0.cardID]?.behavior.contains(.flying) == true }
+        let cluster = threats.count >= 2 && threats.contains { first in
+            threats.contains { second in first.id != second.id && hypot(first.x - second.x, first.y - second.y) <= 1.8 }
+        }
+        let scored = affordable.map { card -> (CardDefinition, Double) in
+            var score = Double(random() % 100) / 100
+            if !threats.isEmpty {
+                if hasAirThreat && card.targetsAir { score += 2.8 }
+                if cluster && card.behavior.contains(.splash) { score += 1.7 }
+                if cluster && card.kind == .spell { score += 1.0 }
+                if card.behavior.contains(.ranged) { score += 0.55 }
+                if card.kind == .building { score += 0.45 }
+                score += Double(max(0, 4 - card.cost)) * 0.12
+            } else {
+                if card.behavior.contains(.buildingTarget) { score += 1.35 }
+                if card.kind == .troop { score += 0.5 }
+                if (4...6).contains(card.cost) { score += 0.25 }
+                if card.kind == .spell { score -= 0.25 }
+            }
+            score += Double(trophyBand) * 0.025
+            return (card, score)
+        }
+        return scored.max { $0.1 < $1.1 }?.0
+    }
     private func playBlueAI() {
-        let affordable = hand.compactMap { CardCatalog.byID[$0] }.filter { $0.cost <= Int(floor(blueElixir)) }
-        guard !affordable.isEmpty else { return }
-        let choice = affordable[Int(random() % UInt64(affordable.count))]
-        let lane = random() % 2 == 0 ? 3.2 : 14.8
-        _ = deploy(id: choice.id, x: lane, y: 4 + Double(random() % 65) / 10, team: .blue)
+        guard let choice = chooseBotCard(hand: hand, team: .blue, elixir: blueElixir) else { return }
+        let threats = entities.filter { $0.alive && !$0.tower && $0.team == .red && $0.y < 12 }
+        let threat = threats.min { $0.y < $1.y }
+        let lane = threat.map { $0.x < 9 ? 3.2 : 14.8 } ?? (random() % 2 == 0 ? 3.2 : 14.8)
+        let x = choice.kind == .spell ? (threat?.x ?? lane) : lane
+        let y: Double
+        if choice.kind == .spell {
+            y = threat?.y ?? (22 + Double(random() % 65) / 10)
+        } else if let threat {
+            y = max(1.5, min(14.5, threat.y - 1.1))
+        } else {
+            y = 4 + Double(random() % 65) / 10
+        }
+        _ = deploy(id: choice.id, x: x, y: y, team: .blue)
     }
     private func playAI() {
-        let affordable = redHand.compactMap { CardCatalog.byID[$0] }.filter { $0.cost <= Int(floor(redElixir)) }
-        guard !affordable.isEmpty else { return }
-        let choice = affordable[Int(random() % UInt64(affordable.count))]
-        let lane = random() % 2 == 0 ? 3.2 : 14.8
-        _ = deploy(id: choice.id, x: lane, y: 22 + Double(random() % 65) / 10, team: .red)
+        guard let choice = chooseBotCard(hand: redHand, team: .red, elixir: redElixir) else { return }
+        let threats = entities.filter { $0.alive && !$0.tower && $0.team == .blue && $0.y > 20 }
+        let threat = threats.max { $0.y < $1.y }
+        let lane = threat.map { $0.x < 9 ? 3.2 : 14.8 } ?? (random() % 2 == 0 ? 3.2 : 14.8)
+        let x = choice.kind == .spell ? (threat?.x ?? lane) : lane
+        let y: Double
+        if choice.kind == .spell {
+            y = threat?.y ?? (4 + Double(random() % 65) / 10)
+        } else if let threat {
+            y = min(30.0, max(16.5, threat.y + 1.1))
+        } else {
+            y = 22 + Double(random() % 65) / 10
+        }
+        _ = deploy(id: choice.id, x: x, y: y, team: .red)
     }
     private func moveAndFight() {
         var pendingSpawns: [(Team, Double, Double, String)] = []

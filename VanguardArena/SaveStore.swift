@@ -99,7 +99,10 @@ final class ProfileStore: ObservableObject {
             var valid = loaded
             valid.schemaVersion = 3
             valid.meta = valid.meta ?? MetaProgression()
-            valid.meta?.cardCopies = valid.meta?.cardCopies ?? [:]
+            if var meta = valid.meta {
+                meta.cardCopies = meta.cardCopies ?? [:]
+                valid.meta = meta
+            }
             if let meta = valid.meta, !Calendar.current.isDateInToday(meta.dailyDate) {
                 valid.meta?.dailyDate = Date()
                 valid.meta?.dailyQuests = MetaProgression().dailyQuests

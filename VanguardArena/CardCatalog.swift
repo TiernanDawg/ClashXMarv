@@ -150,7 +150,7 @@ Mirror Dimension|1|spell|Mirror
         if ["prince","bandit","ram","hog rider","charge"].contains(where: { a.contains($0) }) { b.insert(.charge) }
         if a.contains("mega knight") || a.contains("jump") { b.insert(.jump) }
         if a.contains("ghost") || a.contains("invisa") { b.insert(.invisible) }
-        if ["giant","golem","balloon","hog rider","royal giant","prince","ram","miner","lava hound"].contains(where: { a.contains($0) }) { b.insert(.buildingTarget) }
+        if a == "giant" || a.contains("royal giant") || a.contains("golem") || a.contains("balloon") || a.contains("hog rider") || a.contains("prince") || a.contains("ram") || a.contains("miner") || a.contains("lava hound") || a.contains("royal hogs") || a.contains("p.e.k.k.a") || a.contains("pekka") { b.insert(.buildingTarget) }
         if a.contains("healer") { b.insert(.heal) }
         if ["fire spirits","skeletons","bats","goblins","spear goblins","goblin gang","skeleton army","guards","minions","zappies","barbarians","minion horde","royal hogs","rascals","three musketeers"].contains(where: { a.contains($0) }) { b.insert(.swarm) }
         if a.contains("guard") || a.contains("shield") { b.insert(.shield) }
@@ -160,9 +160,9 @@ Mirror Dimension|1|spell|Mirror
         if a.contains("collector") || a.contains("pump") || a.contains("arc reactor") { b.insert(.elixirPump) }
         if ["poison","graveyard","furnace","hut","crypt"].contains(where: { a.contains($0) }) { b.insert(.areaOverTime) }
         let rarity: CardRarity
-        if cost >= 7 || ["three musketeers","sparky","golem","lava hound","mega knight","p.e.k.k.a","mirror","rocket","lightning"].contains(where: { a.contains($0) }) { rarity = .epic }
-        else if ["bandit","miner","princess","ghost","inferno","night witch","magic archer","electro wizard","log"].contains(where: { a.contains($0) }) { rarity = .legendary }
-        else if cost >= 4 || ["battle ram","hunter","musketeer","witch","collector","freeze","poison"].contains(where: { a.contains($0) }) { rarity = .rare }
+        if ["bandit","miner","princess","royal ghost","inferno dragon","night witch","magic archer","electro wizard","the log","lava hound","mega knight"].contains(where: { a.contains($0) }) { rarity = .legendary }
+        else if cost >= 7 || ["three musketeers","sparky","golem","p.e.k.k.a","mirror","rocket","lightning","witch","baby dragon","executioner"].contains(where: { a.contains($0) }) { rarity = .epic }
+        else if cost >= 4 || ["battle ram","hunter","musketeer","valkyrie","mini p.e.k.k.a","collector","freeze","poison"].contains(where: { a.contains($0) }) { rarity = .rare }
         else { rarity = .common }
         let unitCount: Int
         if a.contains("fire spirits") { unitCount = 3 }
@@ -188,6 +188,6 @@ Mirror Dimension|1|spell|Mirror
         else if b.contains(.ranged) { description = "Ranged support unit; protect it behind a durable front line." }
         else if b.contains(.splash) { description = "Area damage punishes clustered units and fragile swarms." }
         else { description = "Ground fighter that advances through a bridge and pressures the nearest tower." }
-        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: b.contains(.ranged) || b.contains(.flying) || b.contains(.stun) || kind == .building, targetsGround: true, unitCount: unitCount, behavior: b)
+        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: kind == .building ? (a.contains("tesla") || a.contains("inferno tower")) : (b.contains(.ranged) || b.contains(.flying) || b.contains(.stun) || (kind == .spell && ["arrows","fireball","snowball","lightning","rocket","poison","freeze","tornado","zap"].contains(where: { a.contains($0) })), targetsGround: true, unitCount: unitCount, behavior: b)
     }
 }

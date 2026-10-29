@@ -7,6 +7,26 @@ final class ArenaScene: SKScene {
     var reduceMotion = false
     var highContrast = false
     var hapticsEnabled = true
+    var themeIndex = 0
+    private var lastHP: [Int: Double] = [:]
+    private var arenaPalette: (UIColor, UIColor, UIColor, UIColor) {
+        let palettes: [(UIColor, UIColor, UIColor, UIColor)] = [
+            (.systemGreen, UIColor(red: 0.17, green: 0.43, blue: 0.29, alpha: 1), UIColor(red: 0.42, green: 0.62, blue: 0.37, alpha: 1), .systemBlue),
+            (.darkGray, UIColor(red: 0.24, green: 0.28, blue: 0.32, alpha: 1), .lightGray, .systemTeal),
+            (.systemPurple, UIColor(red: 0.25, green: 0.15, blue: 0.38, alpha: 1), .systemPurple, .systemCyan),
+            (.systemBlue, UIColor(red: 0.10, green: 0.25, blue: 0.42, alpha: 1), .systemCyan, .systemBlue),
+            (.systemCyan, UIColor(red: 0.08, green: 0.28, blue: 0.34, alpha: 1), .systemTeal, .systemBlue),
+            (.black, UIColor(red: 0.10, green: 0.11, blue: 0.16, alpha: 1), .darkGray, .systemIndigo),
+            (.systemOrange, UIColor(red: 0.40, green: 0.22, blue: 0.10, alpha: 1), .systemOrange, .systemBlue),
+            (.systemIndigo, UIColor(red: 0.16, green: 0.16, blue: 0.36, alpha: 1), .systemPurple, .systemCyan),
+            (.systemRed, UIColor(red: 0.32, green: 0.10, blue: 0.13, alpha: 1), .systemRed, .systemBlue),
+            (.systemTeal, UIColor(red: 0.08, green: 0.28, blue: 0.27, alpha: 1), .systemTeal, .systemBlue),
+            (.systemYellow, UIColor(red: 0.35, green: 0.28, blue: 0.10, alpha: 1), .systemYellow, .systemBlue),
+            (.systemPink, UIColor(red: 0.30, green: 0.12, blue: 0.28, alpha: 1), .systemPink, .systemCyan),
+            (.systemPurple, UIColor(red: 0.24, green: 0.12, blue: 0.33, alpha: 1), .systemYellow, .systemCyan)
+        ]
+        return palettes[min(palettes.count - 1, max(0, themeIndex))]
+    }
     private var entityNodes: [Int: SKNode] = [:]
     private var ghost: SKShapeNode?
     private var gridPreview: SKShapeNode?
@@ -16,7 +36,7 @@ final class ArenaScene: SKScene {
     var onDrop: ((Double, Double) -> Void)?
 
     override func didMove(to view: SKView) {
-        backgroundColor = UIColor(red: 0.10, green: 0.30, blue: 0.22, alpha: 1)
+        backgroundColor = arenaPalette.0
         drawArena()
     }
 
@@ -30,9 +50,10 @@ final class ArenaScene: SKScene {
         gridPreview = nil
         removeAllChildren()
         entityNodes.removeAll()
+        lastHP.removeAll()
         let field = SKShapeNode(rect: CGRect(x: 2, y: 2, width: size.width - 4, height: size.height - 4), cornerRadius: 12)
-        field.fillColor = UIColor(red: 0.17, green: 0.43, blue: 0.29, alpha: 1)
-        field.strokeColor = UIColor(red: 0.42, green: 0.62, blue: 0.37, alpha: 1)
+        field.fillColor = arenaPalette.1
+        field.strokeColor = arenaPalette.2
         field.lineWidth = 2
         field.zPosition = -10
         addChild(field)
@@ -49,7 +70,7 @@ final class ArenaScene: SKScene {
         }
         let river = SKShapeNode(rectOf: CGSize(width: size.width, height: tileHeight * 2))
         river.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        river.fillColor = UIColor(red: 0.12, green: 0.52, blue: 0.75, alpha: 1)
+        river.fillColor = arenaPalette.3
         river.strokeColor = .clear
         river.zPosition = -5
         addChild(river)
@@ -78,6 +99,7 @@ final class ArenaScene: SKScene {
         for id in Array(entityNodes.keys) where !alive.contains(id) {
             entityNodes[id]?.removeFromParent()
             entityNodes.removeValue(forKey: id)
+            lastHP.removeValue(forKey: id)
         }
         for entity in model.entities {
             let node: SKNode
@@ -88,6 +110,17 @@ final class ArenaScene: SKScene {
                 entityNodes[entity.id] = node
                 addChild(node)
             }
+            if let oldHP = lastHP[entity.id], entity.hp < oldHP {
+                node.removeAction(forKey: "hit-squash")
+                node.run(.sequence([.scale(to: 1.12, duration: 0.055), .scale(to: 1.0, duration: 0.11)]), withKey: "hit-squash")
+                let flash = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.7)
+                flash.fillColor = .white.withAlphaComponent(0.72)
+                flash.strokeColor = .clear
+                flash.zPosition = 3
+                node.addChild(flash)
+                flash.run(.sequence([.fadeOut(withDuration: 0.12), .removeFromParent()]))
+            }
+            lastHP[entity.id] = entity.hp
             node.position = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
             node.zPosition = CGFloat(entity.y)
             node.alpha = (CardCatalog.byID[entity.cardID]?.behavior.contains(.invisible) == true && !entity.hasAttacked) ? 0.28 : 1
