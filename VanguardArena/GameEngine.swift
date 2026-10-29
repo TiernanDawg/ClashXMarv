@@ -107,7 +107,7 @@ final class BattleModel: ObservableObject {
     private let replayActions: [BattleAction]
     private let isReplaying: Bool
     private let cardLevels: [String: Int]
-    private let botLevel: Int
+    let botLevel: Int
     private let trophyBand: Int
     private var replayIndex = 0
     private var redQueue: [String] = []
@@ -117,7 +117,6 @@ final class BattleModel: ObservableObject {
     private var blueAIClock = 1.7
     private let automatedBlue: Bool
     let isPractice: Bool
-    let botLevel: Int
     var difficultyLabel: String { trophyBand < 3 ? "STANDARD" : (trophyBand < 7 ? "ADVANCED" : "EXPERT") }
     private var bannerClock = 3.0
     private var overtime = false

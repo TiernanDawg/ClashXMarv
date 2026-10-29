@@ -67,7 +67,9 @@ struct RootView: View {
             if phase != .active {
                 if let battle {
                     if battle.isFinished && !lastResultSaved { if !battle.isPractice { battle.saveRecord(profile: profile) }; lastResultSaved = true }
-                    saveBattleSnapshot(battle)
+                    if battle.isPractice {
+                        profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
+                    } else { saveBattleSnapshot(battle) }
                 } else { profile.persist() }
                 ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, enabled: false)
             } else { updateMusic() }
@@ -78,7 +80,9 @@ struct RootView: View {
             battle.setSoundEnabled(profile.profile.settings.sound)
             battle.tick()
             if Date().timeIntervalSince(lastSnapshotSave) >= 2 {
-                saveBattleSnapshot(battle)
+                if battle.isPractice {
+                    profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
+                } else { saveBattleSnapshot(battle) }
                 lastSnapshotSave = Date()
             }
             updateMusic()
