@@ -23,10 +23,21 @@ final class BattleSelfTestTests: XCTestCase {
         }
     }
 
-    func testOneThousandDeterministicBotMatches() {
-        let report = BattleSelfTest.run(matches: 1_000)
-        XCTAssertEqual(report.matches, 1_000)
+    private func runBatch(_ start: Int) {
+        let report = BattleSelfTest.run(matches: 100, startingAt: start)
+        XCTAssertEqual(report.matches, 100)
         XCTAssertGreaterThan(report.totalTicks, 0)
         XCTAssertGreaterThan(report.maxEntities, 0)
     }
+
+    func testSimulationBatch00() { runBatch(0) }
+    func testSimulationBatch01() { runBatch(100) }
+    func testSimulationBatch02() { runBatch(200) }
+    func testSimulationBatch03() { runBatch(300) }
+    func testSimulationBatch04() { runBatch(400) }
+    func testSimulationBatch05() { runBatch(500) }
+    func testSimulationBatch06() { runBatch(600) }
+    func testSimulationBatch07() { runBatch(700) }
+    func testSimulationBatch08() { runBatch(800) }
+    func testSimulationBatch09() { runBatch(900) }
 }
