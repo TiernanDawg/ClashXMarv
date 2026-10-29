@@ -143,7 +143,7 @@ struct RootView: View {
                         Button { toggleDeck(card) } label: {
                             HStack(spacing: 10) {
                                 CardGlyph(card: card, size: 44)
-                                VStack(alignment: .leading, spacing: 3) { Text\(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir · \(card.rarity.rawValue)").font(.caption2).foregroundStyle(accent) }
+                                VStack(alignment: .leading, spacing: 3) { Text(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir · \(card.rarity.rawValue)").font(.caption2).foregroundStyle(accent) }
                                 Spacer(minLength: 0)
                                 if profile.profile.selectedDeck.contains(card.id) { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
                             }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(profile.profile.selectedDeck.contains(card.id) ? accent.opacity(0.7) : .clear, lineWidth: 1.5))
@@ -171,7 +171,7 @@ struct RootView: View {
             HStack { Text("\(CardCatalog.all.count) original cards").font(.subheadline); Spacer(); Text("Tap for stats").font(.caption).foregroundStyle(.white.opacity(0.5)) }.padding(16)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ForEach(CardCatalog.all) { card in Button { detail = card } label: { HStack(spacing: 10) { CardGlyph(card: card, size: 48); VStack(alignment: .leading, spacing: 4) { Text\(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir").font(.caption).foregroundStyle(accent); Text\(card.rarity.rawValue.uppercased()).font(.system(size: 9, weight: .bold)).foregroundStyle(gold) }; Spacer(minLength: 0) }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 15)) } }
+                    ForEach(CardCatalog.all) { card in Button { detail = card } label: { HStack(spacing: 10) { CardGlyph(card: card, size: 48); VStack(alignment: .leading, spacing: 4) { Text(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir").font(.caption).foregroundStyle(accent); Text(card.rarity.rawValue.uppercased()).font(.system(size: 9, weight: .bold)).foregroundStyle(gold) }; Spacer(minLength: 0) }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 15)) } }
                 }.padding(14)
             }
         }
@@ -207,7 +207,7 @@ struct RootView: View {
             Text("King Level \(profile.profile.kingLevel)").font(.title2.bold())
             HStack(spacing: 10) { statCard("WINS", "\(profile.profile.wins)", "checkmark.circle.fill", .green); statCard("LOSSES", "\(profile.profile.losses)", "xmark.circle.fill", .red); statCard("CROWNS", "\(profile.profile.crowns)", "crown.fill", gold) }.padding(.horizontal, 16)
             HStack { Text("XP PROGRESS"); Spacer(); Text("\(profile.profile.xp % 100)/100") }.font(.caption.bold()).padding(.horizontal, 18)
-            ProgressView(value: Double\(profile.profile.xp % 100), total: 100).tint(accent).padding(.horizontal, 18)
+            ProgressView(value: Double(profile.profile.xp % 100), total: 100).tint(accent).padding(.horizontal, 18)
             Spacer()
             Button("VIEW BATTLE LOG") { screen = .log }.buttonStyle(PrimaryButtonStyle())
             Spacer()
@@ -251,7 +251,7 @@ struct RootView: View {
             header("Daily Supply", back: .home)
             Text("A gold-only shop. No purchases, ads, or premium-only cards.").font(.subheadline).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 20)
             ForEach(Array(CardCatalog.all.prefix(6))) { card in
-                HStack { CardGlyph(card: card, size: 52); VStack(alignment: .leading) { Text\(card.name).font(.headline); Text("Card copies · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
+                HStack { CardGlyph(card: card, size: 52); VStack(alignment: .leading) { Text(card.name).font(.headline); Text("Card copies · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
                     .padding(12).background(panel, in: RoundedRectangle(cornerRadius: 15)).padding(.horizontal, 16)
             }
             Spacer()
@@ -299,10 +299,10 @@ struct RootView: View {
                     ForEach(battle.hand, id: \.self) { id in
                         if let card = CardCatalog.byID[id] {
                             Button { battle.select(id); scene.render(battle) } label: {
-                                VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text\(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
+                                VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
                                     .frame(maxWidth: .infinity).frame(height: 88).background(battle.selectedCard == id ? accent.opacity(0.24) : panel, in: RoundedRectangle(cornerRadius: 13))
                                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(battle.selectedCard == id ? accent : .clear, lineWidth: 2))
-                                    .opacity(battle.blueElixir >= Double\(card.cost) ? 1 : 0.38)
+                                    .opacity(battle.blueElixir >= Double(card.cost) ? 1 : 0.38)
                             }.buttonStyle(.plain)
                                 .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("battle"))
                                     .onChanged { value in
@@ -324,7 +324,7 @@ struct RootView: View {
                                         }
                                         scene.render(battle)
                                     })
-                                .disabled(battle.blueElixir < Double\(card.cost))
+                                .disabled(battle.blueElixir < Double(card.cost))
                         }
                     }
                 }.padding(.horizontal, 8)
@@ -368,7 +368,7 @@ struct RootView: View {
 struct MiniCard: View {
     let card: CardDefinition
     var body: some View {
-        VStack(spacing: 4) { CardGlyph(card: card, size: 43); Text\(card.name).font(.system(size: 8, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
+        VStack(spacing: 4) { CardGlyph(card: card, size: 43); Text(card.name).font(.system(size: 8, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
             .frame(maxWidth: .infinity).frame(height: 88).background(panel, in: RoundedRectangle(cornerRadius: 11))
     }
 }
@@ -401,7 +401,7 @@ struct CardDetailView: View {
     var body: some View {
         ZStack { ink.ignoresSafeArea(); ScrollView { VStack(spacing: 16) {
             CardGlyph(card: card, size: 116).padding(.top, 30)
-            Text\(card.name).font(.system(size: 28, weight: .black, design: .rounded))
+            Text(card.name).font(.system(size: 28, weight: .black, design: .rounded))
             Text("\(card.rarity.rawValue.uppercased())  ·  \(card.kind.rawValue.uppercased())  ·  \(card.cost) ELIXIR").font(.caption.bold()).tracking(1).foregroundStyle(accent)
             Text(card.description).font(.body).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.72)).padding(.horizontal, 24)
             VStack(spacing: 0) {
