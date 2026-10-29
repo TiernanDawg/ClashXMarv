@@ -3,7 +3,7 @@ import Foundation
 enum CardKind: String, Codable { case troop, building, spell }
 enum CardRarity: String, Codable { case common = "Common", rare = "Rare", epic = "Epic", legendary = "Legendary" }
 enum CardBehavior: String, Codable, CaseIterable {
-    case melee, ranged, splash, flying, charge, jump, spawner, deathSpawn, rampBeam, stun, slow, invisible, tunnel, areaOverTime, buildingTarget, spell, heal, shield, knockback, clone, mirror, elixirPump
+    case melee, ranged, splash, flying, charge, jump, spawner, deathSpawn, rampBeam, stun, slow, invisible, tunnel, areaOverTime, buildingTarget, spell, heal, shield, knockback, clone, mirror, elixirPump, swarm
 }
 
 struct CardDefinition: Identifiable, Codable, Hashable {
@@ -21,6 +21,7 @@ struct CardDefinition: Identifiable, Codable, Hashable {
     let hitSpeed: Double
     let targetsAir: Bool
     let targetsGround: Bool
+    let unitCount: Int
     let behavior: Set<CardBehavior>
     var dps: Double { damage / max(0.25, hitSpeed) }
     var statsLine: String { "HP \(Int(hp)) · DPS \(Int(dps)) · Range \(String(format: "%.1f", range)) · \(speed == 0 ? "Stationary" : "\(Int(speed * 60)) tiles/min")" }
@@ -140,13 +141,14 @@ Mirror Dimension|1|spell|Mirror
         if a.contains("inferno") || a.contains("beam") || a.contains("sparky") || a.contains("ramping") { b.insert(.rampBeam) }
         if ["ice","freeze","slow","web","snowball"].contains(where: { a.contains($0) }) { b.insert(.slow) }
         if ["electro","zap","zappies","stun"].contains(where: { a.contains($0) }) { b.insert(.stun) }
-        if ["witch","hut","crypt","spawner","horde","swarm","golem","lava hound","skeleton barrel"].contains(where: { a.contains($0) }) { b.insert(.spawner) }
-        if ["giant skeleton","lumberjack","golem","lava hound"].contains(where: { a.contains($0) }) { b.insert(.deathSpawn) }
+        if ["witch","tombstone","furnace","goblin hut","barbarian hut"].contains(where: { a.contains($0) }) { b.insert(.spawner) }
+        if ["giant skeleton","lumberjack","golem","lava hound","skeleton barrel","elixir golem"].contains(where: { a.contains($0) }) { b.insert(.deathSpawn) }
         if ["prince","bandit","ram","hog rider","charge"].contains(where: { a.contains($0) }) { b.insert(.charge) }
         if a.contains("mega knight") || a.contains("jump") { b.insert(.jump) }
         if a.contains("ghost") || a.contains("invisa") { b.insert(.invisible) }
         if ["giant","golem","balloon","hog rider","royal giant","prince","ram","miner","lava hound"].contains(where: { a.contains($0) }) { b.insert(.buildingTarget) }
         if a.contains("healer") { b.insert(.heal) }
+        if ["fire spirits","skeletons","bats","goblins","spear goblins","goblin gang","skeleton army","guards","minions","zappies","barbarians","minion horde","royal hogs","rascals","three musketeers"].contains(where: { a.contains($0) }) { b.insert(.swarm) }
         if a.contains("guard") || a.contains("shield") { b.insert(.shield) }
         if ["log","barrel","bowler","snowball","tornado"].contains(where: { a.contains($0) }) { b.insert(.knockback) }
         if a.contains("clone") { b.insert(.clone) }
@@ -158,7 +160,19 @@ Mirror Dimension|1|spell|Mirror
         else if ["bandit","miner","princess","ghost","inferno","night witch","magic archer","electro wizard","log"].contains(where: { a.contains($0) }) { rarity = .legendary }
         else if cost >= 4 || ["battle ram","hunter","musketeer","witch","collector","freeze","poison"].contains(where: { a.contains($0) }) { rarity = .rare }
         else { rarity = .common }
-        let hp = kind == .spell ? 0 : (kind == .building ? 850 + Double(cost) * 125 : 190 + Double(cost) * 155) * (["swarm","horde","gang"].contains(where: { a.contains($0) }) ? 0.58 : 1)
+        let unitCount: Int
+        if a.contains("fire spirits") { unitCount = 3 }
+        else if a.contains("skeleton army") { unitCount = 6 }
+        else if a.contains("minion horde") { unitCount = 6 }
+        else if a.contains("goblin gang") { unitCount = 5 }
+        else if a.contains("royal hogs") { unitCount = 4 }
+        else if a.contains("three musketeers") { unitCount = 3 }
+        else if a.contains("barbarians") { unitCount = 4 }
+        else if a.contains("rascals") { unitCount = 3 }
+        else if a.contains("spear goblins") { unitCount = 2 }
+        else if a.contains("bats") || a.contains("minions") || a.contains("skeletons") || a.contains("goblins") || a.contains("zappies") || a.contains("guards") { unitCount = 3 }
+        else { unitCount = 1 }
+        let hp = kind == .spell ? 0 : (kind == .building ? 850 + Double(cost) * 125 : 190 + Double(cost) * 155) * (unitCount > 1 ? 0.58 : 1)
         let damage = kind == .spell ? 150 + Double(cost) * 78 : 34 + Double(cost) * 31
         let range = kind == .spell ? 2.8 : (b.contains(.ranged) ? 5.0 : (kind == .building ? 5.5 : 0.9))
         let speed = kind == .building || kind == .spell ? 0 : (b.contains(.flying) ? 1.5 : (cost <= 2 ? 1.25 : (cost >= 6 ? 0.62 : 0.95)))
@@ -170,6 +184,6 @@ Mirror Dimension|1|spell|Mirror
         else if b.contains(.ranged) { description = "Ranged support unit; protect it behind a durable front line." }
         else if b.contains(.splash) { description = "Area damage punishes clustered units and fragile swarms." }
         else { description = "Ground fighter that advances through a bridge and pressures the nearest tower." }
-        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: b.contains(.ranged) || b.contains(.flying) || b.contains(.stun) || kind == .building, targetsGround: true, behavior: b)
+        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: b.contains(.ranged) || b.contains(.flying) || b.contains(.stun) || kind == .building, targetsGround: true, unitCount: unitCount, behavior: b)
     }
 }
