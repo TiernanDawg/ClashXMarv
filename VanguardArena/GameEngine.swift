@@ -487,10 +487,10 @@ final class BattleModel: ObservableObject {
         for i in entities.indices {
             guard entities[i].alive else { continue }
             if entities[i].deployClock > 0 { entities[i].deployClock = max(0, entities[i].deployClock - Balance.tick); continue }
+            entities[i].rageClock = max(0, entities[i].rageClock - Balance.tick)
             if entities[i].stunClock > 0 {
                 entities[i].stunClock = max(0, entities[i].stunClock - Balance.tick)
                 entities[i].slowClock = max(0, entities[i].slowClock - Balance.tick)
-            entities[i].rageClock = max(0, entities[i].rageClock - Balance.tick)
                 continue
             }
             entities[i].slowClock = max(0, entities[i].slowClock - Balance.tick)

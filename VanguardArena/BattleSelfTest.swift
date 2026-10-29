@@ -14,7 +14,7 @@ enum BattleSelfTest {
         var totalTicks = 0
         var maxEntities = 0
         for match in 0..<matches {
-            if match % 100 == 0 { print("Self-test progress: \\(match)/\\(matches)") }
+            if match % 100 == 0 { print("Self-test progress: \(match)/\(matches)") }
             let model = BattleModel(deck: CardCatalog.starterDeck, seed: UInt64(match + 1), automatedBlue: true)
             model.setSoundEnabled(false)
             model.setOpponentEmotesMuted(true)
