@@ -3,7 +3,7 @@ import SpriteKit
 import UIKit
 import Combine
 
-private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log, tutorial }
+private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log, tutorial, practice }
 private let ink = Color(red: 0.035, green: 0.055, blue: 0.10)
 private let panel = Color(red: 0.075, green: 0.105, blue: 0.17)
 private let accent = Color(red: 0.39, green: 0.79, blue: 0.98)
@@ -41,6 +41,7 @@ struct RootView: View {
             case .shop: shop
             case .log: battleLog
             case .tutorial: tutorial
+            case .practice: practiceLab
             }
         }
         .foregroundStyle(.white)
@@ -65,7 +66,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { phase in
             if phase != .active {
                 if let battle {
-                    if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
+                    if battle.isFinished && !lastResultSaved { if !battle.isPractice { battle.saveRecord(profile: profile) }; lastResultSaved = true }
                     saveBattleSnapshot(battle)
                 } else { profile.persist() }
                 ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, enabled: false)
@@ -86,7 +87,7 @@ struct RootView: View {
             scene.highContrast = profile.profile.settings.highContrast
             scene.hapticsEnabled = profile.profile.settings.haptics
             scene.render(battle)
-            if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
+            if battle.isFinished && !lastResultSaved { if !battle.isPractice { battle.saveRecord(profile: profile) }; lastResultSaved = true }
         }
     }
 
@@ -161,6 +162,7 @@ struct RootView: View {
                         navTile("Profile", "person.crop.circle.fill", .profile)
                     }
                     HStack(spacing: 12) {
+                        navTile("Practice Lab", "scope", .practice)
                         navTile("Daily Supply", "gift.fill", .shop)
                         navTile("Battle Log", "clock.arrow.circlepath", .log)
                     }
@@ -200,9 +202,27 @@ struct RootView: View {
                     } else { RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4])).frame(height: 92).overlay(Text("\(i + 1)").foregroundStyle(.white.opacity(0.3))) }
                 }
             }.padding(.horizontal, 14)
-            if !hasAirDefense || !hasWinCondition {
-                HStack(spacing: 8) { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(gold); Text(!hasAirDefense && !hasWinCondition ? "Add air defense and a tower win condition." : (!hasAirDefense ? "Warning: this deck has limited air defense." : "Warning: add a reliable tower win condition.")).font(.caption) }
-                    .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(gold.opacity(0.10), in: RoundedRectangle(cornerRadius: 12)).padding(14)
+            let hasSmallSpell = profile.profile.selectedDeck.contains { id in
+                guard let c = CardCatalog.byID[id] else { return false }
+                return c.kind == .spell && c.cost <= 3
+            }
+            let hasSwarmAnswer = profile.profile.selectedDeck.contains { id in
+                guard let c = CardCatalog.byID[id] else { return false }
+                return c.kind == .spell && c.behavior.contains(.splash) || c.behavior.contains(.splash) || c.behavior.contains(.knockback)
+            }
+            let spellCount = profile.profile.selectedDeck.compactMap { CardCatalog.byID[$0] }.filter { $0.kind == .spell }.count
+            if !hasAirDefense || !hasWinCondition || !hasSmallSpell || !hasSwarmAnswer || spellCount == 0 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("DECK CHECK").font(.caption.bold()).tracking(1.2).foregroundStyle(gold)
+                    if !hasAirDefense { Label("Limited air defense", systemImage: "exclamationmark.triangle.fill") }
+                    if !hasWinCondition { Label("No clear tower win condition", systemImage: "target") }
+                    if !hasSmallSpell { Label("Consider a low-cost spell for quick responses", systemImage: "sparkles") }
+                    if !hasSwarmAnswer { Label("Few reliable answers to clustered swarms", systemImage: "person.3.fill") }
+                    if spellCount == 0 { Label("No spells: consider adding one for flexible trades", systemImage: "bolt.fill") }
+                    Text("Suggestions only — your deck is never changed automatically.")
+                        .font(.caption2).foregroundStyle(.white.opacity(0.55))
+                }.font(.caption).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(gold.opacity(0.10), in: RoundedRectangle(cornerRadius: 12)).padding(14)
             }
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -281,6 +301,34 @@ struct RootView: View {
             Spacer()
             Button("VIEW BATTLE LOG") { screen = .log }.buttonStyle(PrimaryButtonStyle())
             Spacer()
+        }
+    }
+    @State private var practiceStartingElixir = 5.0
+    private var practiceLab: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            header("Practice Lab", back: .home)
+            Text("Train without risking trophies or changing your progression. The rival still uses the normal arena rules and has no hidden elixir.")
+                .font(.subheadline).foregroundStyle(.white.opacity(0.68)).fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 18)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack { Text("Starting elixir"); Spacer(); Text("\(Int(practiceStartingElixir)) / 10").font(.headline.monospacedDigit()).foregroundStyle(gold) }
+                Slider(value: $practiceStartingElixir, in: 1...10, step: 1).tint(accent)
+                Text("Choose a starting amount to rehearse opening pushes or defensive responses. Elixir regenerates normally after the battle begins.")
+                    .font(.caption).foregroundStyle(.white.opacity(0.55))
+            }.padding(16).background(panel, in: RoundedRectangle(cornerRadius: 18)).padding(.horizontal, 18)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("PRACTICE RULES").font(.caption.bold()).tracking(1.4).foregroundStyle(accent)
+                Label("No trophies, gold, XP, chests, quests, or battle-log entry", systemImage: "shield.lefthalf.filled")
+                Label("Same cards, tower rules, and elixir regeneration as ladder", systemImage: "equal.circle")
+                Label("Your selected deck and card levels are preserved", systemImage: "rectangle.stack")
+            }.font(.subheadline).padding(16).background(panel, in: RoundedRectangle(cornerRadius: 18)).padding(.horizontal, 18)
+            Spacer()
+            Button {
+                profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
+                let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies, startingElixir: practiceStartingElixir, isPractice: true)
+                installBattle(model, savedResult: false)
+            } label: { Text("START PRACTICE MATCH").font(.headline.bold()).frame(maxWidth: .infinity).frame(height: 54).background(accent, in: RoundedRectangle(cornerRadius: 15)).foregroundStyle(ink) }
+                .padding(.horizontal, 18).padding(.bottom, 18)
         }
     }
     private var settings: some View {
@@ -524,6 +572,7 @@ struct RootView: View {
             if let battle, !battle.banner.isEmpty {
                 Text(battle.banner).font(.caption.bold()).tracking(2).foregroundStyle(gold).padding(.vertical, 4)
             }
+            if let battle { Text(battle.isPractice ? "PRACTICE · NO REWARDS" : "AI RIVAL · \(battle.difficultyLabel) · LEVEL \(battle.botLevel)").font(.system(size: 9, weight: .black)).tracking(1).foregroundStyle(.white.opacity(0.52)) }
             if let battle {
                 GeometryReader { proxy in
                     SpriteView(scene: scene, options: [.allowsTransparency])

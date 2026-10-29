@@ -116,6 +116,9 @@ final class BattleModel: ObservableObject {
     private var aiClock = 2.4
     private var blueAIClock = 1.7
     private let automatedBlue: Bool
+    let isPractice: Bool
+    let botLevel: Int
+    var difficultyLabel: String { trophyBand < 3 ? "STANDARD" : (trophyBand < 7 ? "ADVANCED" : "EXPERT") }
     private var bannerClock = 3.0
     private var overtime = false
     private var energyClock = 0.0
@@ -135,7 +138,7 @@ final class BattleModel: ObservableObject {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
         return String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)
     }
-    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:], trophies: Int = 0) {
+    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:], trophies: Int = 0, startingElixir: Double = Balance.startElixir, isPractice: Bool = false) {
         let valid = deck.filter { CardCatalog.byID[$0] != nil }
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
@@ -147,6 +150,7 @@ final class BattleModel: ObservableObject {
         self.replayActions = replayActions.sorted { $0.time < $1.time }
         self.isReplaying = isReplaying
         self.automatedBlue = automatedBlue
+        self.isPractice = isPractice
         let normalizedSeed = seed == 0 ? 1 : seed
         self.seed = normalizedSeed
         rng = normalizedSeed
@@ -154,6 +158,8 @@ final class BattleModel: ObservableObject {
         queue = Array(queue[offset...]) + Array(queue[..<offset])
         hand = Array(queue.prefix(4))
         nextCard = queue.dropFirst(4).first ?? queue[0]
+        blueElixir = min(Balance.maxElixir, max(0, startingElixir))
+        redElixir = min(Balance.maxElixir, max(0, startingElixir))
         redQueue = CardCatalog.starterDeck
         let redOffset = Int(random() % UInt64(max(1, redQueue.count)))
         redQueue = Array(redQueue[redOffset...]) + Array(redQueue[..<redOffset])
@@ -194,6 +200,7 @@ final class BattleModel: ObservableObject {
         lastRedCard = snapshot.lastRedCard
         cardLevels = snapshot.cardLevels
         botLevel = snapshot.botLevel
+        isPractice = false
         trophyBand = snapshot.trophyBand
         replayActions = []
         isReplaying = false

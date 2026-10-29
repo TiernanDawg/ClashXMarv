@@ -25,14 +25,14 @@ The CI workflow validates all 91 roster names, runs XcodeGen, builds and archive
 
 ## Design decisions and grievance audit
 
-- **Pay-to-win / paid advantages:** no purchases, ads, login, or online service; progression rewards are earned locally. Battle card levels currently use a normalized level baseline for fair matches.
+- **Pay-to-win / paid advantages:** no purchases, ads, login, or online service; progression rewards are earned locally. Card levels are preserved; the AI rival uses a visible level estimate from your selected deck and no hidden elixir advantage.
 - **Chest walls / grind:** a four-hour free chest grants gold and gems; the small offline ladder grants gold, XP and trophies after a match. No paid chest or premium-only card.
 - **Matchmaking fairness:** a single-player AI rival uses a limited energy pool and delayed card decisions. There is no rubber-banding or hidden online matchmaking.
 - **Misdrops:** tap-select then arena-tap and direct arena touch/drag placement are supported, with tile validity colors, a ghost offset, tile snapping and haptic feedback. Invalid placements do not spend elixir.
 - **Targeting / pathing clarity:** card stat sheets expose range, speed, targets, HP, damage and DPS. Ground units steer toward either bridge lane; flyers ignore river lane steering.
 - **Hidden stats:** card collection opens a complete per-card stat sheet and analog/role explanation.
 - **Emote toxicity:** a four-second emote cooldown is included; rival emote muting is a setting.
-- **Onboarding:** the home screen explains the offline ladder and the battle HUD labels the card selection and placement action.
+- **Onboarding:** the home screen explains the offline ladder and the battle HUD labels the card selection and placement action, shows the AI rival's difficulty/level, and offers a no-reward Practice Lab with configurable starting elixir.
 - **Balance transparency:** card numbers are centralized in the catalog and level scaling is one shared function; card behavior is composed from reusable flags rather than 91 subclasses.
 - **Lag / disconnects:** the game is offline and uses a seeded PRNG and fixed 20 Hz simulation. There are no network sessions to disconnect.
 - **Battery / heat:** the simulation ticks at 20 Hz and SpriteKit renders the board. Visual effects are short-lived; no downloaded textures or continuous network work.
@@ -45,13 +45,13 @@ The CI workflow validates all 91 roster names, runs XcodeGen, builds and archive
 A review of the 2025 RoyaleAPI player survey and recent r/ClashRoyale discussions found recurring complaints about pay-to-win/over-levelled matchups, opaque or frustrating matchmaking, card balance, progression grind and limited reward choice, bugs/performance, and emote spam. These are recurring themes in sampled discussions, not proof that every player agrees.
 
 Design responses and additional recommended features:
-- **Fair-play queue:** keep battle levels normalized by default and expose both player and bot card levels before the match; never alter bot elixir or secretly change its deck to force a result.
+- **Fair-play and transparency:** do not secretly change the bot's elixir or deck to force a result. Expose the rival difficulty and level, while leaving card levels and match feel intact rather than forcing normalized levels.
 - **Transparent bot difficulty:** show a difficulty label and a short post-match explanation of the bot's threat response. Keep decisions imperfect and seeded so replays are reproducible.
 - **Practice lab:** add a no-trophy sandbox with selectable starting elixir, target dummies, and repeatable enemy pushes so players can learn counters without losing progress.
 - **Deck diagnostics:** warn about missing air defense, swarm answers, spell coverage, and a clear win condition; explain why each suggested change helps instead of silently changing the deck.
 - **Replay and learning tools:** preserve the battle log and allow replaying a match, then show elixir spent, tower damage, and major positive/negative trades. This directly addresses complaints about difficulty learning and confusing losses.
 - **Progression without walls:** keep chests/rewards earnable offline, show exact timers and costs, and avoid premium-only cards or paid upgrades. A rotating free challenge can encourage trying underused cards without forcing collection completion.
-- **Emote controls:** make mute immediate and persistent, with no gameplay penalty; retain a small cooldown and cap opponent emotes.
+- **Emote controls:** persistent rival-emote mute is available in Settings; the player emote button retains a four-second cooldown.
 - **Stability over spectacle:** keep effects bounded, make reduced-motion/high-contrast settings easy to find, and run deterministic simulation tests in CI.
 
 Sources reviewed:
@@ -90,3 +90,11 @@ The design audit treats these sources as reports of recurring player concerns, n
 - [Legends of Runeterra user reviews on Metacritic](https://www.metacritic.com/game/legends-of-runeterra/user-reviews/?platform=pc) show contrasting opinions about its tactical gameplay, free-to-play generosity, and the reduced focus on PvP. Vanguard prioritizes offline play and keeps the AI ladder available without servers.
 
 The sources support the product decisions above, but they do not validate this implementation's balance, accessibility, stability, or performance. Those still require automated testing and real-device playtesting.
+
+
+### Implemented follow-through
+
+- **Practice Lab:** starts a normal AI match with a selectable starting elixir amount, does not save trophies, gold, XP, quests, chests, or a battle-log result, and does not change the player's deck or card levels. It keeps the standard arena rules rather than introducing a separate combat mode.
+- **Bot transparency:** the battle HUD labels the rival's difficulty band and calculated card level. Difficulty is descriptive of the existing trophy-band response timing, not a claim of competitive matchmaking.
+- **Deck diagnostics:** deck builder suggestions now check air defense, tower win condition, low-cost spell availability, spell coverage, and swarm answers. They are advisory and never auto-edit the deck.
+- **Existing friction controls retained:** opponent emotes can be muted persistently in Settings, and saved battles can be replayed from Battle Log.
