@@ -119,7 +119,7 @@ final class BattleModel: ObservableObject {
         entitySequence += 1
         let multiplier = Balance.levelMultiplier(botLevel)
         let hp = (king ? 4200.0 : 2600.0) * multiplier
-        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: hp, maxHP: hp, tower: true, king: king, awake: !king, levelMultiplier: multiplier))
+        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: hp, maxHP: hp, levelMultiplier: multiplier, tower: true, king: king, awake: !king))
     }
     func select(_ id: String) {
         guard hand.contains(id), CardCatalog.byID[id] != nil, cost(for: id) <= Int(floor(blueElixir)) else { return }
@@ -174,8 +174,8 @@ final class BattleModel: ObservableObject {
             let spread = Double(index) - Double(count - 1) / 2
             entities.append(BattleEntity(id: entitySequence, cardID: card.id, team: team,
                 x: min(17.5, max(0.5, xx + spread * 0.28)), y: min(31.5, max(0.5, yy + abs(spread) * 0.12)),
-                hp: hp, maxHP: hp, deployClock: Balance.deployDelay, levelMultiplier: multiplier,
-                lifetime: card.kind == .building ? 30 : 0, spawnClock: (card.behavior.contains(.spawner) || card.behavior.contains(.elixirPump)) ? 5.0 : 0))
+                hp: hp, maxHP: hp, deployClock: Balance.deployDelay,
+                lifetime: card.kind == .building ? 30 : 0, spawnClock: (card.behavior.contains(.spawner) || card.behavior.contains(.elixirPump)) ? 5.0 : 0, levelMultiplier: multiplier))
         }
         events.append(BattleEvent(x: xx, y: yy, text: isMirror ? "MIRRORED" : (card.behavior.contains(.tunnel) ? "TUNNEL" : "DEPLOY"), born: elapsed))
         if card.behavior.contains(.jump) {
