@@ -15,6 +15,8 @@ struct RootView: View {
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
     @State private var detail: CardDefinition?
     @State private var lastResultSaved = false
+    @State private var arenaRect: CGRect = .zero
+    @State private var draggingCardID: String?
     @State private var toast = ""
     private let timer = Timer.publish(every: Balance.tick, on: .main, in: .common).autoconnect()
 
@@ -283,7 +285,11 @@ struct RootView: View {
                 Text(battle.banner).font(.caption.bold()).tracking(2).foregroundStyle(gold).padding(.vertical, 4)
             }
             if let battle {
-                SpriteView(scene: scene, options: [.allowsTransparency]).frame(maxWidth: .infinity).frame(height: 440).clipShape(RoundedRectangle(cornerRadius: 18)).padding(.horizontal, 8)
+                GeometryReader { proxy in
+                    SpriteView(scene: scene, options: [.allowsTransparency])
+                        .onAppear { arenaRect = proxy.frame(in: .named("battle")) }
+                        .onChange(of: proxy.size) { _ in arenaRect = proxy.frame(in: .named("battle")) }
+                }.frame(height: 440).clipShape(RoundedRectangle(cornerRadius: 18)).padding(.horizontal, 8)
                 HStack(spacing: 6) {
                     ForEach(0..<10, id: \.self) { i in Capsule().fill(Double(i) < battle.blueElixir ? Color.purple : .white.opacity(0.10)).frame(height: 8) }
                     Text(String(format: "%.1f", battle.blueElixir)).font(.caption.bold().monospacedDigit()).frame(width: 30)
@@ -296,7 +302,28 @@ struct RootView: View {
                                     .frame(maxWidth: .infinity).frame(height: 88).background(battle.selectedCard == id ? accent.opacity(0.24) : panel, in: RoundedRectangle(cornerRadius: 13))
                                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(battle.selectedCard == id ? accent : .clear, lineWidth: 2))
                                     .opacity(battle.blueElixir >= Double(card.cost) ? 1 : 0.38)
-                            }.buttonStyle(.plain).disabled(battle.blueElixir < Double(card.cost))
+                            }.buttonStyle(.plain)
+                                .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("battle"))
+                                    .onChanged { value in
+                                        if draggingCardID == nil {
+                                            draggingCardID = id
+                                            battle.select(id)
+                                        }
+                                    }
+                                    .onEnded { value in
+                                        defer { draggingCardID = nil }
+                                        if arenaRect.width > 0 && arenaRect.contains(value.location), battle.selectedCard == id {
+                                            let x = Double((value.location.x - arenaRect.minX) / arenaRect.width) * Balance.arenaWidth
+                                            let y = Double((arenaRect.maxY - value.location.y) / arenaRect.height) * Balance.arenaHeight
+                                            _ = battle.deploySelected(x: x, y: y)
+                                            ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
+                                            ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
+                                        } else {
+                                            battle.cancelSelection()
+                                        }
+                                        scene.render(battle)
+                                    })
+                                .disabled(battle.blueElixir < Double(card.cost))
                         }
                     }
                 }.padding(.horizontal, 8)
@@ -315,7 +342,7 @@ struct RootView: View {
                     Text(battle.selectedCard == nil ? "Choose a card, then tap or drag onto your side." : "Drag across the arena and release to deploy.").font(.caption2).foregroundStyle(.white.opacity(0.55)).padding(.bottom, 4)
                 }
             }
-        }.padding(.top, 4)
+        }.padding(.top, 4).coordinateSpace(name: "battle")
     }
     private func startBattle() {
         let model = BattleModel(deck: profile.profile.selectedDeck)
