@@ -127,7 +127,11 @@ Mirror Dimension|1|spell|Mirror
         return make(name: p[0], cost: cost, kind: kind, analog: p[3])
     }
     static let byID: [String: CardDefinition] = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
-    static let starterDeck: [String] = ["Captain Amerika","Black Window","Green Gobbler","Hulkster","Shrink Zap","Hawk Volley","Furry's Turret","Icey Man"].compactMap { name in all.first { $0.name == name }?.id }
+    static func unlockThreshold(for card: CardDefinition) -> Int {
+        guard let index = all.firstIndex(where: { $0.id == card.id }) else { return 3_600 }
+        return min(3_600, (index / 7) * 300)
+    }
+    static let starterDeck: [String] = ["Captain Amerika","Black Window","Green Gobbler","Hobgobbler Pair","Icey Man","Waspies","Doombot","Ant Dude Swarm"].compactMap { name in all.first { $0.name == name }?.id }
     private static func make(name: String, cost: Int, kind: CardKind, analog: String) -> CardDefinition {
         let id = name.lowercased().replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression).trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         let a = analog.lowercased()

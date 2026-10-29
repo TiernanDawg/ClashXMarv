@@ -33,6 +33,7 @@ struct MetaProgression: Codable {
     var seasonXP = 0
     var claimedSeasonTiers: [Int] = []
     var tutorialCompleted = false
+    var cardCopies: [String: Int]? = [:]
 }
 struct PlayerProfile: Codable {
     var schemaVersion = 3
@@ -98,6 +99,7 @@ final class ProfileStore: ObservableObject {
             var valid = loaded
             valid.schemaVersion = 3
             valid.meta = valid.meta ?? MetaProgression()
+            valid.meta?.cardCopies = valid.meta?.cardCopies ?? [:]
             if let meta = valid.meta, !Calendar.current.isDateInToday(meta.dailyDate) {
                 valid.meta?.dailyDate = Date()
                 valid.meta?.dailyQuests = MetaProgression().dailyQuests
@@ -107,12 +109,16 @@ final class ProfileStore: ObservableObject {
                 valid.meta?.seasonXP = 0
                 valid.meta?.claimedSeasonTiers = []
             }
-            valid.selectedDeck = Array(valid.selectedDeck.filter { CardCatalog.byID[$0] != nil }.prefix(8))
-            for id in CardCatalog.starterDeck where valid.selectedDeck.count < 8 && !valid.selectedDeck.contains(id) { valid.selectedDeck.append(id) }
             valid.unlocked = Array(Set(valid.unlocked.filter { CardCatalog.byID[$0] != nil }))
             if valid.unlocked.isEmpty { valid.unlocked = Array(CardCatalog.all.prefix(20)).map(\.id) }
             valid.trophies = max(0, min(10000, valid.trophies))
+            valid.selectedDeck = Array(valid.selectedDeck.filter { id in
+                guard let card = CardCatalog.byID[id] else { return false }
+                return valid.unlocked.contains(id) || valid.trophies >= CardCatalog.unlockThreshold(for: card)
+            }.prefix(8))
+            for id in CardCatalog.starterDeck where valid.selectedDeck.count < 8 && !valid.selectedDeck.contains(id) { valid.selectedDeck.append(id) }
             valid.gold = max(0, valid.gold); valid.gems = max(0, valid.gems)
+            if !Calendar.current.isDateInToday(valid.dailyDate) { valid.dailyDate = Date(); valid.dailyCrowns = 0 }
             profile = valid
         } else { profile = PlayerProfile() }
         persist()

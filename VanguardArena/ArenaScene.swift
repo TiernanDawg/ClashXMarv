@@ -90,6 +90,7 @@ final class ArenaScene: SKScene {
             }
             node.position = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
             node.zPosition = CGFloat(entity.y)
+            node.alpha = (CardCatalog.byID[entity.cardID]?.behavior.contains(.invisible) == true && !entity.hasAttacked) ? 0.28 : 1
             if let badge = node.childNode(withName: "hp") as? SKShapeNode {
                 let ratio = max(0, min(1, entity.hp / max(1, entity.maxHP)))
                 badge.xScale = ratio
@@ -185,10 +186,7 @@ final class ArenaScene: SKScene {
          min(31.5, max(0.5, Double(point.y / tileHeight))))
     }
 
-    private func valid(_ y: Double) -> Bool {
-        guard let id = battle?.selectedCard, let card = CardCatalog.byID[id] else { return false }
-        return card.kind == .spell || y <= 15.5
-    }
+    private func valid(_ x: Double, _ y: Double) -> Bool { battle?.isValidPlacement(x: x, y: y) ?? false }
 
     func updatePlacementGhost(x: Double, y: Double, valid: Bool) {
         let tile = CGPoint(x: floor(x), y: floor(y))
@@ -220,7 +218,7 @@ final class ArenaScene: SKScene {
 
     private func updateGhost(at point: CGPoint) {
         let (x, y) = boardPoint(point)
-        updatePlacementGhost(x: x, y: y, valid: valid(y))
+        updatePlacementGhost(x: x, y: y, valid: valid(x, y))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -234,7 +232,7 @@ final class ArenaScene: SKScene {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let (x, y) = boardPoint(touch.location(in: self))
-        if valid(y) {
+        if valid(x, y) {
             if hapticsEnabled { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
             onDrop?(x, y)
         } else {

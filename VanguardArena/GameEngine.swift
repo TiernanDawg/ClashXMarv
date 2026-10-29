@@ -15,10 +15,23 @@ struct BattleEntity: Identifiable, Codable {
     var lifetime = 0.0
     var spawnClock = 0.0
     var beamRamp = 1.0
+    var stunClock = 0.0
+    var slowClock = 0.0
+    var hasAttacked = false
+    var levelMultiplier = 1.0
+    var travelSinceAttack = 0.0
     var tower = false
     var king = false
     var awake = false
     var alive: Bool { hp > 0 }
+}
+private struct TimedSpell {
+    var cardID: String
+    var team: Team
+    var x: Double
+    var y: Double
+    var remaining: Double
+    var tickClock: Double = 0
 }
 struct BattleEvent: Identifiable {
     let id = UUID()
@@ -47,6 +60,8 @@ final class BattleModel: ObservableObject {
     private let originalDeck: [String]
     private let replayActions: [BattleAction]
     private let isReplaying: Bool
+    private let cardLevels: [String: Int]
+    private let botLevel: Int
     private var replayIndex = 0
     private var redQueue: [String] = []
     private var redHand: [String] = []
@@ -59,18 +74,26 @@ final class BattleModel: ObservableObject {
     private var energyClock = 0.0
     private var rng: UInt64
     private var lastEmote = -100.0
+    private var opponentEmoteClock = 24.0
+    private var opponentEmotesMuted = false
     private var fallenTowerKeys = Set<String>()
     private var processedDeaths = Set<Int>()
+    private var activeSpells: [TimedSpell] = []
+    private var lastBlueCard: String?
+    private var lastRedCard: String?
     var isFinished: Bool { result != nil }
     var timeText: String {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
         return String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)
     }
-    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false) {
+    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:]) {
         let valid = deck.filter { CardCatalog.byID[$0] != nil }
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
         originalDeck = chosen
+        self.cardLevels = cardLevels
+        let levelTotal = chosen.reduce(0) { $0 + max(1, min(13, cardLevels[$1] ?? 1)) }
+        botLevel = max(1, min(13, Int((Double(levelTotal) / Double(max(1, chosen.count))).rounded())))
         self.replayActions = replayActions.sorted { $0.time < $1.time }
         self.isReplaying = isReplaying
         self.automatedBlue = automatedBlue
@@ -94,16 +117,27 @@ final class BattleModel: ObservableObject {
     }
     private func addTower(_ team: Team, _ x: Double, _ y: Double, _ king: Bool) {
         entitySequence += 1
-        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: king ? 4200 : 2600, maxHP: king ? 4200 : 2600, tower: true, king: king, awake: !king))
+        let multiplier = Balance.levelMultiplier(botLevel)
+        let hp = (king ? 4200.0 : 2600.0) * multiplier
+        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: hp, maxHP: hp, tower: true, king: king, awake: !king, levelMultiplier: multiplier))
     }
     func select(_ id: String) {
-        guard hand.contains(id), let card = CardCatalog.byID[id], card.cost <= Int(floor(blueElixir)) else { return }
+        guard hand.contains(id), CardCatalog.byID[id] != nil, cost(for: id) <= Int(floor(blueElixir)) else { return }
         selectedCard = id
     }
     func cancelSelection() { selectedCard = nil }
+    func cost(for id: String) -> Int {
+        guard let card = CardCatalog.byID[id] else { return 0 }
+        if card.behavior.contains(.mirror) {
+            return min(10, (lastBlueCard.flatMap { CardCatalog.byID[$0]?.cost } ?? 0) + 1)
+        }
+        return card.cost
+    }
     func isValidPlacement(x: Double, y: Double) -> Bool {
-        guard let id = selectedCard, let card = CardCatalog.byID[id], card.cost <= Int(floor(blueElixir)) else { return false }
-        return card.kind == .spell || canDeploy(team: .blue, x: x, y: y)
+        guard let id = selectedCard, let card = CardCatalog.byID[id], cost(for: id) <= Int(floor(blueElixir)) else { return false }
+        let actual = card.behavior.contains(.mirror) ? lastBlueCard.flatMap { CardCatalog.byID[$0] } : card
+        guard let actual else { return false }
+        return actual.kind == .spell || actual.behavior.contains(.tunnel) || canDeploy(team: .blue, x: x, y: y)
     }
     func deploySelected(x: Double, y: Double) -> Bool {
         guard let id = selectedCard else { return false }
@@ -111,31 +145,45 @@ final class BattleModel: ObservableObject {
     }
     @discardableResult
     func deploy(id: String, x: Double, y: Double, team: Team) -> Bool {
-        guard !isFinished, let card = CardCatalog.byID[id] else { return false }
+        guard !isFinished, let selectedDefinition = CardCatalog.byID[id] else { return false }
+        let isMirror = selectedDefinition.behavior.contains(.mirror)
+        let previousID = team == .blue ? lastBlueCard : lastRedCard
+        let actualID = isMirror ? (previousID ?? "") : id
+        guard let card = CardCatalog.byID[actualID] else { return false }
+        let cost = isMirror ? min(10, card.cost + 1) : selectedDefinition.cost
         let xx = min(17.5, max(0.5, x)), yy = min(31.5, max(0.5, y))
         if team == .blue {
-            guard hand.contains(id), blueElixir >= Double(card.cost), card.kind == .spell || canDeploy(team: .blue, x: xx, y: yy) else { return false }
-            blueElixir -= Double(card.cost); cycle(id); selectedCard = nil
+            guard hand.contains(id), blueElixir >= Double(cost), card.kind == .spell || card.behavior.contains(.tunnel) || canDeploy(team: .blue, x: xx, y: yy) else { return false }
+            blueElixir -= Double(cost); cycle(id); selectedCard = nil
+            if !isMirror { lastBlueCard = id }
             if !automatedBlue && !isReplaying { actions.append(BattleAction(time: elapsed, cardID: id, x: xx, y: yy)) }
         } else {
-            guard redElixir >= Double(card.cost), redHand.contains(id), card.kind == .spell || canDeploy(team: .red, x: xx, y: yy) else { return false }
-            redElixir -= Double(card.cost)
+            guard redElixir >= Double(cost), redHand.contains(id), card.kind == .spell || card.behavior.contains(.tunnel) || canDeploy(team: .red, x: xx, y: yy) else { return false }
+            redElixir -= Double(cost)
+            if !isMirror { lastRedCard = id }
             if let index = redQueue.firstIndex(of: id) { redQueue.remove(at: index); redQueue.append(id) }
             redHand = Array(redQueue.prefix(4))
         }
         if card.kind == .spell { cast(card, x: xx, y: yy, team: team); return true }
         entitySequence += 1
-        let hp = max(1, card.hp * Balance.levelMultiplier(1))
+        let multiplier = Balance.levelMultiplier(team == .blue ? max(1, min(13, cardLevels[card.id] ?? 1)) : botLevel)
+        let hp = max(1, card.hp * multiplier)
         let count = card.kind == .troop ? max(1, card.unitCount) : 1
         for index in 0..<count {
             entitySequence += 1
             let spread = Double(index) - Double(count - 1) / 2
             entities.append(BattleEntity(id: entitySequence, cardID: card.id, team: team,
                 x: min(17.5, max(0.5, xx + spread * 0.28)), y: min(31.5, max(0.5, yy + abs(spread) * 0.12)),
-                hp: hp, maxHP: hp, deployClock: Balance.deployDelay,
-                lifetime: card.kind == .building ? 30 : 0, spawnClock: card.behavior.contains(.spawner) ? 5.0 : 0))
+                hp: hp, maxHP: hp, deployClock: Balance.deployDelay, levelMultiplier: multiplier,
+                lifetime: card.kind == .building ? 30 : 0, spawnClock: (card.behavior.contains(.spawner) || card.behavior.contains(.elixirPump)) ? 5.0 : 0))
         }
-        events.append(BattleEvent(x: xx, y: yy, text: "DEPLOY", born: elapsed))
+        events.append(BattleEvent(x: xx, y: yy, text: isMirror ? "MIRRORED" : (card.behavior.contains(.tunnel) ? "TUNNEL" : "DEPLOY"), born: elapsed))
+        if card.behavior.contains(.jump) {
+            for i in entities.indices where entities[i].alive && entities[i].team != team && hypot(entities[i].x - xx, entities[i].y - yy) <= 1.35 {
+                entities[i].hp -= card.damage * 1.1
+            }
+            events.append(BattleEvent(x: xx, y: yy, text: "JUMP SLAM", born: elapsed))
+        }
         return true
     }
     private func canDeploy(team: Team, x: Double, y: Double) -> Bool {
@@ -151,7 +199,17 @@ final class BattleModel: ObservableObject {
         hand = Array(queue.prefix(4)); nextCard = queue.dropFirst(4).first ?? queue[0]
     }
     private func cast(_ card: CardDefinition, x: Double, y: Double, team: Team) {
-        let radius = card.behavior.contains(.areaOverTime) ? 3.2 : 2.7
+        let analog = card.analog.lowercased()
+        let radius: Double
+        if analog.contains("rocket") { radius = 2.0 }
+        else if analog.contains("arrows") || analog.contains("graveyard") { radius = 4.0 }
+        else if analog.contains("log") { radius = 3.8 }
+        else if analog.contains("poison") || analog.contains("earthquake") || analog.contains("freeze") || analog.contains("tornado") { radius = 3.4 }
+        else if analog.contains("barrel") { radius = 1.5 }
+        else { radius = 2.7 }
+        if card.behavior.contains(.areaOverTime) {
+            activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 5.0))
+        }
         if card.behavior.contains(.clone) {
             let clones = entities.filter { $0.alive && !$0.tower && $0.team == team && hypot($0.x - x, $0.y - y) <= radius }
             for unit in clones.prefix(8) {
@@ -160,14 +218,34 @@ final class BattleModel: ObservableObject {
                 entities.append(BattleEntity(id: entitySequence, cardID: unit.cardID, team: team, x: unit.x + 0.2, y: unit.y + 0.2, hp: hp, maxHP: hp, deployClock: 0.25))
             }
         } else {
-            for i in entities.indices where entities[i].alive && entities[i].team != team && hypot(entities[i].x - x, entities[i].y - y) <= radius {
-                entities[i].hp -= card.damage * (entities[i].tower ? 0.55 : 1)
-                if card.behavior.contains(.stun) { entities[i].attackClock += 0.7 }
+            let candidates = entities.indices.filter { index in
+                let target = entities[index]
+                guard target.alive && target.team != team else { return false }
+                if analog.contains("earthquake") && !target.tower && CardCatalog.byID[target.cardID]?.kind != .building { return false }
+                let dx = analog.contains("log") ? (target.x - x) * 0.55 : target.x - x
+                return hypot(dx, target.y - y) <= radius
+            }.sorted { entities[$0].hp < entities[$1].hp }
+            let limit = analog.contains("lightning") ? min(3, candidates.count) : candidates.count
+            for index in candidates.prefix(limit) {
+                let dx = analog.contains("log") ? (entities[index].x - x) * 0.55 : entities[index].x - x
+                let distance = hypot(dx, entities[index].y - y)
+                let falloff = max(0.35, 1 - distance / max(0.1, radius) * 0.55)
+                let towerScale = entities[index].tower ? (analog.contains("rocket") ? 1.0 : 0.45) : 1.0
+                let level = team == .blue ? max(1, min(13, cardLevels[card.id] ?? 1)) : botLevel
+                entities[index].hp -= card.damage * Balance.levelMultiplier(level) * falloff * towerScale
+                if card.behavior.contains(.stun) { entities[index].stunClock = max(entities[index].stunClock, analog.contains("freeze") ? 2.0 : 0.65) }
+                if card.behavior.contains(.slow) { entities[index].slowClock = max(entities[index].slowClock, analog.contains("freeze") ? 2.0 : 1.8) }
+                if card.behavior.contains(.knockback) && !entities[index].tower {
+                    let dist = max(0.1, hypot(entities[index].x - x, entities[index].y - y))
+                    entities[index].x = min(17.5, max(0.5, entities[index].x + (entities[index].x - x) / dist * 0.8))
+                    entities[index].y = min(31.5, max(0.5, entities[index].y + (entities[index].y - y) / dist * 0.8))
+                }
             }
         }
         events.append(BattleEvent(x: x, y: y, text: card.name.uppercased(), born: elapsed))
         if card.behavior.contains(.elixirPump) && team == .blue { blueElixir = min(10, blueElixir + 1) }
     }
+    func setOpponentEmotesMuted(_ muted: Bool) { opponentEmotesMuted = muted }
     func emote(_ label: String) -> Bool {
         guard elapsed - lastEmote >= 4, !isFinished else { return false }
         lastEmote = elapsed; events.append(BattleEvent(x: 9, y: 7, text: label, born: elapsed)); return true
@@ -183,6 +261,7 @@ final class BattleModel: ObservableObject {
             }
         }
         energyClock += Balance.tick
+        applyTimedSpells()
         bannerClock = max(0, bannerClock - Balance.tick)
         events.removeAll { elapsed - $0.born > 1.4 }
         let localElapsed = overtime ? elapsed - 180 : elapsed
@@ -193,6 +272,14 @@ final class BattleModel: ObservableObject {
         }
         if elapsed >= 120 && elapsed < 121 { banner = "DOUBLE ELIXIR"; bannerClock = 2.8 }
         if overtime && elapsed >= 240 && elapsed < 241 { banner = "TRIPLE ELIXIR"; bannerClock = 2.8 }
+        opponentEmoteClock -= Balance.tick
+        if !opponentEmotesMuted && opponentEmoteClock <= 0 {
+            if random() % 3 == 0 {
+                let labels = ["NICE!", "OOPS", "WOW", "WELL PLAYED", "GOOD GAME", "THINK"]
+                events.append(BattleEvent(x: 9, y: 25, text: labels[Int(random() % UInt64(labels.count))], born: elapsed))
+            }
+            opponentEmoteClock = 22 + Double(random() % 180) / 10
+        }
         aiClock -= Balance.tick
         if aiClock <= 0 { playAI(); aiClock = 1.8 + Double(random() % 260) / 100 }
         blueAIClock -= Balance.tick
@@ -231,11 +318,17 @@ final class BattleModel: ObservableObject {
         for i in entities.indices {
             guard entities[i].alive else { continue }
             if entities[i].deployClock > 0 { entities[i].deployClock = max(0, entities[i].deployClock - Balance.tick); continue }
+            if entities[i].stunClock > 0 {
+                entities[i].stunClock = max(0, entities[i].stunClock - Balance.tick)
+                entities[i].slowClock = max(0, entities[i].slowClock - Balance.tick)
+                continue
+            }
+            entities[i].slowClock = max(0, entities[i].slowClock - Balance.tick)
             if entities[i].tower {
                 if entities[i].king && !entities[i].awake { continue }
                 entities[i].attackClock -= Balance.tick
                 if entities[i].attackClock <= 0, let target = nearestTarget(from: entities[i], range: 5.8) {
-                    entities[target].hp -= 100; entities[i].attackClock = 0.9
+                    entities[target].hp -= 100 * entities[i].levelMultiplier; entities[i].attackClock = 0.9
                 }
                 continue
             }
@@ -243,6 +336,14 @@ final class BattleModel: ObservableObject {
             if card.kind == .building {
                 entities[i].lifetime -= Balance.tick
                 if entities[i].lifetime <= 0 { entities[i].hp = 0; continue }
+                if card.behavior.contains(.elixirPump) {
+                    entities[i].spawnClock -= Balance.tick
+                    if entities[i].spawnClock <= 0 {
+                        if entities[i].team == .blue { blueElixir = min(10, blueElixir + 1) } else { redElixir = min(10, redElixir + 1) }
+                        entities[i].spawnClock = 5.0
+                        events.append(BattleEvent(x: entities[i].x, y: entities[i].y, text: "+1 ELIXIR", born: elapsed))
+                    }
+                }
             }
             if card.behavior.contains(.spawner) {
                 entities[i].spawnClock -= Balance.tick
@@ -257,14 +358,16 @@ final class BattleModel: ObservableObject {
                 let distance = hypot(entities[target].x - entities[i].x, entities[target].y - entities[i].y)
                 if distance <= card.range + 0.35 && card.range > 0 {
                     if entities[i].attackClock <= 0 {
-                        let damage = card.damage * (card.behavior.contains(.rampBeam) ? entities[i].beamRamp : 1)
+                        let damage = card.damage * entities[i].levelMultiplier * (card.behavior.contains(.rampBeam) ? entities[i].beamRamp : 1) * (card.behavior.contains(.charge) && entities[i].travelSinceAttack >= 2.2 ? 2 : 1)
                         if card.behavior.contains(.splash) {
                             for j in entities.indices where entities[j].alive && entities[j].team != entities[i].team && hypot(entities[j].x - entities[target].x, entities[j].y - entities[target].y) <= 1.5 { entities[j].hp -= damage * 0.75 }
                         } else { entities[target].hp -= damage }
                         if card.behavior.contains(.heal) { entities[i].hp = min(entities[i].maxHP, entities[i].hp + 25) }
-                        if card.behavior.contains(.stun) { entities[target].attackClock += 0.35 }
-                        if card.behavior.contains(.slow) { entities[target].attackClock += 0.25 }
+                        if card.behavior.contains(.stun) { entities[target].stunClock = max(entities[target].stunClock, 0.35) }
+                        if card.behavior.contains(.slow) { entities[target].slowClock = max(entities[target].slowClock, 0.8) }
                         entities[i].attackClock = card.hitSpeed
+                        entities[i].hasAttacked = true
+                        entities[i].travelSinceAttack = 0
                         if card.behavior.contains(.rampBeam) { entities[i].beamRamp = min(3.2, entities[i].beamRamp + 0.35) }
                         events.append(BattleEvent(x: entities[target].x, y: entities[target].y, text: "−\(Int(damage))", born: elapsed))
                     }
@@ -276,7 +379,8 @@ final class BattleModel: ObservableObject {
             let targetY = entities[i].team == .blue ? 30.0 : 2.0
             let dx = laneX - entities[i].x, dy = targetY - entities[i].y
             let distance = max(0.001, hypot(dx, dy))
-            let step = card.speed * Balance.tick
+            let step = card.speed * Balance.tick * (entities[i].slowClock > 0 ? 0.55 : 1.0)
+            if card.behavior.contains(.charge) { entities[i].travelSinceAttack += step }
             if !card.behavior.contains(.flying) && entities[i].y > 14 && entities[i].y < 18 {
                 let bridgeX = entities[i].x < 9 ? 3.2 : 14.8
                 entities[i].x += (bridgeX - entities[i].x) * min(1, step * 1.8)
@@ -330,10 +434,35 @@ final class BattleModel: ObservableObject {
         }
         entities.removeAll { !$0.alive }
     }
+    private func applyTimedSpells() {
+        var pending: [(Team, Double, Double, String)] = []
+        for i in activeSpells.indices {
+            activeSpells[i].remaining -= Balance.tick
+            activeSpells[i].tickClock -= Balance.tick
+            guard activeSpells[i].tickClock <= 0, let card = CardCatalog.byID[activeSpells[i].cardID] else { continue }
+            let effect = activeSpells[i]
+            let a = card.analog.lowercased()
+            for index in entities.indices where entities[index].alive && entities[index].team != effect.team && hypot(entities[index].x - effect.x, entities[index].y - effect.y) <= 3.4 {
+                if a.contains("graveyard") { continue }
+                if a.contains("earthquake") && !entities[index].tower && CardCatalog.byID[entities[index].cardID]?.kind != .building { continue }
+                entities[index].hp -= card.damage * 0.18 * (entities[index].tower ? 0.35 : 1)
+                if a.contains("poison") { entities[index].slowClock = max(entities[index].slowClock, 0.8) }
+            }
+            if a.contains("graveyard") {
+                let id = CardCatalog.all.first { $0.analog == "Skeletons" }?.id ?? "ant-dude-swarm"
+                pending.append((effect.team, effect.x + Double(random() % 7) / 10 - 0.3, effect.y + Double(random() % 7) / 10 - 0.3, id))
+            }
+            activeSpells[i].tickClock = 1.0
+        }
+        activeSpells.removeAll { $0.remaining <= 0 }
+        for item in pending { createSpawn(team: item.0, x: item.1, y: item.2, cardID: item.3) }
+    }
     private func spawnerUnitID(for card: CardDefinition) -> String {
         let a = card.analog.lowercased()
         if a.contains("furnace") { return CardCatalog.all.first { $0.analog == "Fire Spirits" }?.id ?? CardCatalog.starterDeck[0] }
+        if a.contains("night witch") { return CardCatalog.all.first { $0.analog == "Bats" }?.id ?? CardCatalog.starterDeck[0] }
         if a.contains("witch") || a.contains("tombstone") { return CardCatalog.all.first { $0.analog == "Skeletons" }?.id ?? CardCatalog.starterDeck[0] }
+        if a.contains("barbarian hut") { return CardCatalog.all.first { $0.analog == "Barbarians" }?.id ?? CardCatalog.starterDeck[0] }
         return CardCatalog.all.first { $0.analog == "Goblins" }?.id ?? CardCatalog.starterDeck[0]
     }
     private func createSpawn(team: Team, x: Double, y: Double, cardID: String) {
@@ -363,6 +492,7 @@ final class BattleModel: ObservableObject {
         entities.indices.filter { i in
             let t = entities[i]
             guard t.alive && t.team != entity.team && t.id != entity.id && !(entity.tower && t.tower) && hypot(t.x - entity.x, t.y - entity.y) <= range else { return false }
+            if let targetCard = CardCatalog.byID[t.cardID], targetCard.behavior.contains(.invisible), !t.hasAttacked { return false }
             if let source = CardCatalog.byID[entity.cardID], source.kind == .troop, source.behavior.contains(.buildingTarget) {
                 guard t.tower || CardCatalog.byID[t.cardID]?.kind == .building else { return false }
             }
@@ -386,6 +516,7 @@ final class BattleModel: ObservableObject {
             if result == "VICTORY" { p.wins += 1; p.trophies += 28; p.gold += 35; p.xp += 25; p.crowns += blueCrowns }
             else if result == "DEFEAT" { p.losses += 1; p.trophies = max(0, p.trophies - 18); p.gold += 15; p.xp += 10 }
             p.kingLevel = min(50, 1 + p.xp / 100)
+            if !Calendar.current.isDateInToday(p.dailyDate) { p.dailyDate = Date(); p.dailyCrowns = 0 }
             p.dailyCrowns = min(10, p.dailyCrowns + blueCrowns)
             p.battleLog.insert(BattleRecord(result: result, crowns: blueCrowns, opponent: "Arena Rival", seed: seed, deck: originalDeck, actions: actions), at: 0)
             p.battleLog = Array(p.battleLog.prefix(30))

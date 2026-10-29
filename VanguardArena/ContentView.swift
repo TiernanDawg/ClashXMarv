@@ -10,6 +10,7 @@ private let gold = Color(red: 1.0, green: 0.78, blue: 0.30)
 
 struct RootView: View {
     @EnvironmentObject private var profile: ProfileStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var screen: Screen = .home
     @State private var battle: BattleModel?
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
@@ -18,6 +19,8 @@ struct RootView: View {
     @State private var arenaRect: CGRect = .zero
     @State private var draggingCardID: String?
     @State private var tutorialStep = 0
+    @State private var emoteIndex = 0
+    private let emotes = ["NICE!", "OOPS", "WOW", "WELL PLAYED", "GOOD GAME", "THINK"]
     @State private var toast = ""
     private let timer = Timer.publish(every: Balance.tick, on: .main, in: .common).autoconnect()
 
@@ -49,8 +52,15 @@ struct RootView: View {
         .onAppear { updateMusic(); if profile.profile.meta?.tutorialCompleted != true { screen = .tutorial } }
         .onChange(of: screen) { _ in updateMusic() }
         .onChange(of: profile.profile.settings.music) { _ in updateMusic() }
+        .onChange(of: scenePhase) { phase in
+            if phase != .active {
+                profile.persist()
+                ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, enabled: false)
+            } else { updateMusic() }
+        }
         .onReceive(timer) { _ in
-            guard screen == .battle, let battle, !battle.isFinished else { return }
+            guard scenePhase == .active, screen == .battle, let battle, !battle.isFinished else { return }
+            battle.setOpponentEmotesMuted(profile.profile.settings.muteOpponentEmotes)
             battle.tick()
             updateMusic()
             scene.showDamageNumbers = profile.profile.settings.damageNumbers
@@ -184,9 +194,9 @@ struct RootView: View {
                                 CardGlyph(card: card, size: 44)
                                 VStack(alignment: .leading, spacing: 3) { Text(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir · \(card.rarity.rawValue)").font(.caption2).foregroundStyle(accent) }
                                 Spacer(minLength: 0)
-                                if profile.profile.selectedDeck.contains(card.id) { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
+                                if profile.profile.selectedDeck.contains(card.id) { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) } else if !isUnlocked(card) { Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.45)) }
                             }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(profile.profile.selectedDeck.contains(card.id) ? accent.opacity(0.7) : .clear, lineWidth: 1.5))
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plain).disabled(!isUnlocked(card)).opacity(isUnlocked(card) ? 1 : 0.42)
                     }
                 }.padding(.horizontal, 14).padding(.bottom, 12)
             }
@@ -198,11 +208,14 @@ struct RootView: View {
     private var cycleCost: Int { profile.profile.selectedDeck.prefix(4).compactMap { CardCatalog.byID[$0]?.cost }.reduce(0, +) }
     private var hasAirDefense: Bool { profile.profile.selectedDeck.contains { CardCatalog.byID[$0]?.targetsAir == true } }
     private var hasWinCondition: Bool { profile.profile.selectedDeck.contains { id in guard let c = CardCatalog.byID[id] else { return false }; return c.behavior.contains(.buildingTarget) || c.analog.lowercased().contains("balloon") || c.analog.lowercased().contains("giant") || c.analog.lowercased().contains("hog rider") } }
+    private func isUnlocked(_ card: CardDefinition) -> Bool { profile.profile.unlocked.contains(card.id) || profile.profile.trophies >= CardCatalog.unlockThreshold(for: card) }
     private func toggleDeck(_ card: CardDefinition) {
-        profile.update { p in
-            if let index = p.selectedDeck.firstIndex(of: card.id) { p.selectedDeck.remove(at: index) }
-            else if p.selectedDeck.count < 8 { p.selectedDeck.append(card.id) }
+        if profile.profile.selectedDeck.contains(card.id) {
+            profile.update { p in p.selectedDeck.removeAll { $0 == card.id } }
+            return
         }
+        guard isUnlocked(card) else { toast = "Unlock this card by earning trophies"; return }
+        profile.update { p in if p.selectedDeck.count < 8 { p.selectedDeck.append(card.id) } }
     }
     private var cardCollection: some View {
         VStack(spacing: 0) {
@@ -338,8 +351,16 @@ struct RootView: View {
                     Text("CARD SHOP").font(.headline.bold()).tracking(1)
                     Text("Gold-only offers. Every card can be earned through play.").font(.caption).foregroundStyle(.white.opacity(0.55))
                     ForEach(Array(CardCatalog.all.prefix(6))) { card in
-                        HStack { CardGlyph(card: card, size: 48); VStack(alignment: .leading) { Text(card.name).font(.subheadline.bold()); Text("Upgrade or unlock · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
-                            .padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14))
+                        let level = profile.profile.levels[card.id] ?? 1
+                        let copies = profile.profile.meta?.cardCopies?[card.id] ?? 0
+                        let required = copyRequirement(level)
+                        VStack(spacing: 8) {
+                            HStack { CardGlyph(card: card, size: 48); VStack(alignment: .leading) { Text(card.name).font(.subheadline.bold()); Text("Level \(level)/13 · \(copies)/\(required) copies · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer() }
+                            HStack {
+                                Button("COPY · \(copyPrice(card))g") { buyCard(card) }.font(.caption.bold()).padding(9).frame(maxWidth: .infinity).background(accent.opacity(0.18), in: Capsule())
+                                Button("UPGRADE · \(upgradePrice(card, level: level))g") { upgradeCard(card) }.font(.caption.bold()).padding(9).frame(maxWidth: .infinity).background(copies >= required && level < 13 ? gold : .gray.opacity(0.3), in: Capsule()).foregroundStyle(copies >= required && level < 13 ? ink : .white.opacity(0.45)).disabled(copies < required || level >= 13)
+                            }
+                        }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14))
                     }
                 }.padding(.horizontal, 16)
             }.padding(.bottom, 20)
@@ -356,11 +377,13 @@ struct RootView: View {
             let chest = meta.chestSlots.remove(at: index)
             p.gold += chest.gold
             p.gems += chest.gems
-            for n in 0..<chest.copies {
-                let card = CardCatalog.all[(p.crowns + n + p.wins) % CardCatalog.all.count]
-                if !p.unlocked.contains(card.id) { p.unlocked.append(card.id) }
-                else { p.levels[card.id, default: 1] = min(13, p.levels[card.id, default: 1] + 1) }
+            let eligible = CardCatalog.all.filter { p.unlocked.contains($0.id) || p.trophies >= CardCatalog.unlockThreshold(for: $0) }
+            var copies = meta.cardCopies ?? [:]
+            for n in 0..<chest.copies where !eligible.isEmpty {
+                let card = eligible[(p.crowns + n + p.wins) % eligible.count]
+                copies[card.id, default: 0] += 1
             }
+            meta.cardCopies = copies
             p.meta = meta
         }
         toast = "Chest rewards claimed"
@@ -388,10 +411,52 @@ struct RootView: View {
         }
         toast = "Season reward claimed"
     }
+    private func copyPrice(_ card: CardDefinition) -> Int {
+        switch card.rarity { case .common: return 40; case .rare: return 100; case .epic: return 250; case .legendary: return 500 }
+    }
+    private func copyRequirement(_ currentLevel: Int) -> Int {
+        let values = [2, 4, 10, 20, 50, 100, 200, 400, 800, 1_000, 2_000, 5_000]
+        return values[min(values.count - 1, max(0, currentLevel - 1))]
+    }
+    private func upgradePrice(_ card: CardDefinition, level: Int) -> Int {
+        let rarityCost: Int
+        switch card.rarity { case .common: rarityCost = 20; case .rare: rarityCost = 60; case .epic: rarityCost = 120; case .legendary: rarityCost = 240 }
+        return rarityCost * max(1, level)
+    }
     private func buyCard(_ card: CardDefinition) {
-        guard profile.profile.gold >= 100 else { toast = "Not enough gold"; return }
-        profile.update { p in p.gold -= 100; if !p.unlocked.contains(card.id) { p.unlocked.append(card.id) }; p.levels[card.id, default: 1] = min(13, p.levels[card.id, default: 1] + 1) }
-        toast = "\(card.name) upgraded"
+        guard isUnlocked(card) else { toast = "Unlock this card on Trophy Road first"; return }
+        let price = copyPrice(card)
+        guard profile.profile.gold >= price else { toast = "Not enough gold"; return }
+        profile.update { p in
+            p.gold -= price
+            var meta = p.meta ?? MetaProgression()
+            var copies = meta.cardCopies ?? [:]
+            copies[card.id, default: 0] += 1
+            meta.cardCopies = copies
+            p.meta = meta
+        }
+        toast = "Bought one \(card.name) copy"
+    }
+    private func upgradeCard(_ card: CardDefinition) {
+        let level = profile.profile.levels[card.id] ?? 1
+        guard level < 13 else { toast = "Card is already level 13"; return }
+        let required = copyRequirement(level)
+        let copies = profile.profile.meta?.cardCopies?[card.id] ?? 0
+        let price = upgradePrice(card, level: level)
+        guard copies >= required else { toast = "Need \(required) copies to upgrade"; return }
+        guard profile.profile.gold >= price else { toast = "Need \(price) gold to upgrade"; return }
+        profile.update { p in
+            p.gold -= price
+            p.levels[card.id] = level + 1
+            var meta = p.meta ?? MetaProgression()
+            var stored = meta.cardCopies ?? [:]
+            stored[card.id] = max(0, (stored[card.id] ?? 0) - required)
+            meta.cardCopies = stored
+            p.meta = meta
+            p.xp += level * 5
+            p.kingLevel = min(50, 1 + p.xp / 100)
+        }
+        toast = "\(card.name) upgraded to level \(level + 1)"
     }
     private var battleLog: some View {
         VStack(spacing: 0) {
@@ -413,7 +478,13 @@ struct RootView: View {
                 Spacer()
                 VStack(spacing: 2) { Text(battle?.timeText ?? "3:00").font(.title2.monospacedDigit().bold()); Text("RIVAL  ·  \(battle?.redCrowns ?? 0)  —  \(battle?.blueCrowns ?? 0)  ·  YOU").font(.system(size: 9, weight: .black)).foregroundStyle(.white.opacity(0.7)) }
                 Spacer()
-                Button { _ = battle?.emote("NICE!") } label: { Image(systemName: "face.smiling").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Send emote")
+                Button {
+                    let label = emotes[emoteIndex % emotes.count]
+                    if battle?.emote(label) == true {
+                        ProceduralAudio.shared.play(.emote, enabled: profile.profile.settings.sound)
+                        emoteIndex += 1
+                    }
+                } label: { Image(systemName: "face.smiling").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Send emote")
             }.padding(.horizontal, 12)
             if let battle, !battle.banner.isEmpty {
                 Text(battle.banner).font(.caption.bold()).tracking(2).foregroundStyle(gold).padding(.vertical, 4)
@@ -432,10 +503,10 @@ struct RootView: View {
                     ForEach(profile.profile.settings.leftHanded ? Array(battle.hand.reversed()) : battle.hand, id: \.self) { id in
                         if let card = CardCatalog.byID[id] {
                             Button { battle.select(id); scene.render(battle) } label: {
-                                VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
+                                VStack(spacing: 4) { CardGlyph(card: card, size: 48, displayCost: battle.cost(for: id)); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(battle.cost(for: id))").font(.caption2.bold()).foregroundStyle(gold) }
                                     .frame(maxWidth: .infinity).frame(height: 88).background(battle.selectedCard == id ? accent.opacity(0.24) : panel, in: RoundedRectangle(cornerRadius: 13))
                                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(battle.selectedCard == id ? accent : .clear, lineWidth: 2))
-                                    .opacity(battle.blueElixir >= Double(card.cost) ? 1 : 0.38)
+                                    .opacity(battle.blueElixir >= Double(battle.cost(for: id)) ? 1 : 0.38)
                             }.buttonStyle(.plain)
                                 .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("battle"))
                                     .onChanged { value in
@@ -454,15 +525,19 @@ struct RootView: View {
                                         if arenaRect.width > 0 && arenaRect.contains(value.location), battle.selectedCard == id {
                                             let x = Double((value.location.x - arenaRect.minX) / arenaRect.width) * Balance.arenaWidth
                                             let y = Double((arenaRect.maxY - value.location.y) / arenaRect.height) * Balance.arenaHeight
-                                            _ = battle.deploySelected(x: x, y: y)
-                                            ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
-                                            ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
+                                            let deployed = battle.isValidPlacement(x: x, y: y) && battle.deploySelected(x: x, y: y)
+                                             if deployed {
+                                                 ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
+                                                 ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
+                                             } else {
+                                                 battle.cancelSelection()
+                                             }
                                         } else {
                                             battle.cancelSelection()
                                         }
                                         scene.render(battle)
                                     })
-                                .disabled(battle.blueElixir < Double(card.cost))
+                                .disabled(battle.blueElixir < Double(battle.cost(for: id)))
                         }
                     }
                 }.padding(.horizontal, 8)
@@ -484,16 +559,23 @@ struct RootView: View {
         }.padding(.top, 4).coordinateSpace(name: "battle")
     }
     private func updateMusic() {
-        let phase = (battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)
+        let phase = screen == .battle ? ((battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)) : 1
         ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, phase: phase, enabled: profile.profile.settings.music)
     }
     private func startReplay(_ record: BattleRecord) {
-        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true)
+        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true, cardLevels: profile.profile.levels)
         battle = model
         lastResultSaved = true
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.battle = model
-        scene.onDrop = { x, y in _ = model.deploySelected(x: x, y: y); scene.render(model) }
+        scene.onDrop = { x, y in
+            let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
+            if deployed {
+                ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
+                ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
+            } else { model.cancelSelection() }
+            scene.render(model)
+        }
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         scene.showDamageNumbers = profile.profile.settings.damageNumbers
@@ -504,12 +586,19 @@ struct RootView: View {
         scene.render(model)
     }
     private func startBattle() {
-        let model = BattleModel(deck: profile.profile.selectedDeck)
+        let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels)
         battle = model; lastResultSaved = false
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.battle = model
         scene.scaleMode = .resizeFill
-        scene.onDrop = { x, y in _ = model.deploySelected(x: x, y: y); scene.render(model) }
+        scene.onDrop = { x, y in
+            let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
+            if deployed {
+                ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
+                ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
+            } else { model.cancelSelection() }
+            scene.render(model)
+        }
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         screen = .battle
@@ -538,12 +627,13 @@ struct MiniCard: View {
 struct CardGlyph: View {
     let card: CardDefinition
     var size: CGFloat = 48
+    var displayCost: Int? = nil
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.24).fill(LinearGradient(colors: palette, startPoint: .topLeading, endPoint: .bottomTrailing))
             Circle().fill(.white.opacity(0.16)).frame(width: size * 0.62).offset(x: size * 0.12, y: -size * 0.12)
             Image(systemName: symbol).font(.system(size: size * 0.40, weight: .black)).foregroundStyle(.white).shadow(color: .black.opacity(0.35), radius: 2, y: 2)
-            VStack { HStack { Text("\(card.cost)").font(.system(size: size * 0.22, weight: .black)).foregroundStyle(.white).frame(width: size * 0.28, height: size * 0.28).background(.purple, in: Circle()); Spacer() }; Spacer() }.padding(3)
+            VStack { HStack { Text("\(displayCost ?? card.cost)").font(.system(size: size * 0.22, weight: .black)).foregroundStyle(.white).frame(width: size * 0.28, height: size * 0.28).background(.purple, in: Circle()); Spacer() }; Spacer() }.padding(3)
         }.frame(width: size, height: size).overlay(RoundedRectangle(cornerRadius: size * 0.24).stroke(.white.opacity(0.35), lineWidth: 1))
             .accessibilityLabel("\(card.name), \(card.cost) elixir")
     }
