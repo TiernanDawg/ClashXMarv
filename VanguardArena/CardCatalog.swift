@@ -188,6 +188,14 @@ Mirror Dimension|1|spell|Mirror
         else if b.contains(.ranged) { description = "Ranged support unit; protect it behind a durable front line." }
         else if b.contains(.splash) { description = "Area damage punishes clustered units and fragile swarms." }
         else { description = "Ground fighter that advances through a bridge and pressures the nearest tower." }
-        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: kind == .building ? (a.contains("tesla") || a.contains("inferno tower")) : (b.contains(.ranged) || b.contains(.flying) || b.contains(.stun) || (kind == .spell && ["arrows","fireball","snowball","lightning","rocket","poison","freeze","tornado","zap"].contains(where: { a.contains($0) })), targetsGround: true, unitCount: unitCount, behavior: b)
+        let targetsAir: Bool
+        if kind == .building {
+            targetsAir = a.contains("tesla") || a.contains("inferno tower")
+        } else if kind == .spell {
+            targetsAir = ["arrows","fireball","snowball","lightning","rocket","poison","freeze","tornado","zap"].contains(where: { a.contains($0) })
+        } else {
+            targetsAir = b.contains(.ranged) || b.contains(.flying) || b.contains(.stun)
+        }
+        return CardDefinition(id: id, name: name, cost: cost, kind: kind, analog: analog, rarity: rarity, description: description, hp: hp, damage: damage, range: range, speed: speed, hitSpeed: hit, targetsAir: targetsAir, targetsGround: true, unitCount: unitCount, behavior: b)
     }
 }
