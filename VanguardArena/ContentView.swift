@@ -296,7 +296,7 @@ struct RootView: View {
                     Text(String(format: "%.1f", battle.blueElixir)).font(.caption.bold().monospacedDigit()).frame(width: 30)
                 }.padding(.horizontal, 12)
                 HStack(spacing: 7) {
-                    ForEach(battle.hand, id: \.self) { id in
+                    ForEach(profile.profile.settings.leftHanded ? Array(battle.hand.reversed()) : battle.hand, id: \.self) { id in
                         if let card = CardCatalog.byID[id] {
                             Button { battle.select(id); scene.render(battle) } label: {
                                 VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
@@ -309,6 +309,11 @@ struct RootView: View {
                                         if draggingCardID == nil {
                                             draggingCardID = id
                                             battle.select(id)
+                                        }
+                                        if arenaRect.width > 0 && arenaRect.contains(value.location) {
+                                            let x = Double((value.location.x - arenaRect.minX) / arenaRect.width) * Balance.arenaWidth
+                                            let y = Double((arenaRect.maxY - value.location.y) / arenaRect.height) * Balance.arenaHeight
+                                            scene.updatePlacementGhost(x: x, y: y, valid: battle.isValidPlacement(x: x, y: y))
                                         }
                                     }
                                     .onEnded { value in
@@ -350,6 +355,7 @@ struct RootView: View {
         battle = model; lastResultSaved = false
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.battle = model
+        scene.scaleMode = .resizeFill
         scene.onDrop = { x, y in _ = model.deploySelected(x: x, y: y); scene.render(model) }
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear

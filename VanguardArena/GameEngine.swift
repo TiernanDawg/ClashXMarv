@@ -50,6 +50,7 @@ final class BattleModel: ObservableObject {
     private var energyClock = 0.0
     private var rng: UInt64
     private var lastEmote = -100.0
+    private var fallenTowerKeys = Set<String>()
     var isFinished: Bool { result != nil }
     var timeText: String {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
@@ -65,8 +66,7 @@ final class BattleModel: ObservableObject {
         queue = Array(queue[offset...]) + Array(queue[..<offset])
         hand = Array(queue.prefix(4))
         nextCard = queue.dropFirst(4).first ?? queue[0]
-        redQueue = Array(CardCatalog.all.filter { $0.kind != .spell }.map(\.id).prefix(8))
-        if redQueue.count < 8 { redQueue = CardCatalog.starterDeck }
+        redQueue = CardCatalog.starterDeck
         let redOffset = Int(random() % UInt64(max(1, redQueue.count)))
         redQueue = Array(redQueue[redOffset...]) + Array(redQueue[..<redOffset])
         redHand = Array(redQueue.prefix(4))
@@ -86,6 +86,10 @@ final class BattleModel: ObservableObject {
         selectedCard = id
     }
     func cancelSelection() { selectedCard = nil }
+    func isValidPlacement(x: Double, y: Double) -> Bool {
+        guard let id = selectedCard, let card = CardCatalog.byID[id], card.cost <= Int(floor(blueElixir)) else { return false }
+        return card.kind == .spell || canDeploy(team: .blue, x: x, y: y)
+    }
     func deploySelected(x: Double, y: Double) -> Bool {
         guard let id = selectedCard else { return false }
         return deploy(id: id, x: x, y: y, team: .blue)
@@ -115,7 +119,7 @@ final class BattleModel: ObservableObject {
         if baseValid { return true }
         let laneTowerX = x < 9 ? 3.2 : 14.8
         let opponent: Team = team == .blue ? .red : .blue
-        let pocketOpen = entities.contains { $0.tower && !$0.king && $0.team == opponent && !$0.alive && abs($0.x - laneTowerX) < 2 }
+        let pocketOpen = fallenTowerKeys.contains("\(opponent.rawValue)-\(laneTowerX < 9 ? "left" : "right")")
         return pocketOpen && (team == .blue ? y <= 19.5 : y >= 12.5)
     }
     private func cycle(_ id: String) {
@@ -242,6 +246,8 @@ final class BattleModel: ObservableObject {
             }
         }
         for tower in entities where tower.tower && !tower.king && !tower.alive {
+            let lane = tower.x < 9 ? "left" : "right"
+            fallenTowerKeys.insert("\(tower.team.rawValue)-\(lane)")
             if overtime { finish(tower.team == .blue ? "DEFEAT" : "VICTORY") }
             if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
             else { blueCrowns = min(3, blueCrowns + 1) }
