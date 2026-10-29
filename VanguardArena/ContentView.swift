@@ -637,7 +637,15 @@ struct RootView: View {
                 }.padding(.horizontal, 14)
                 if let result = battle.result {
                     VStack(spacing: 8) {
-                        Text(result).font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(result == "VICTORY" ? gold : .white)
+                        Text(battle.isPractice ? "PRACTICE COMPLETE" : result).font(.system(size: 27, weight: .black, design: .rounded)).foregroundStyle(result == "VICTORY" ? gold : .white)
+                        HStack(spacing: 10) {
+                            resultStat("TOWER DAMAGE", "\(Int(battle.blueTowerDamageDealt))", gold)
+                            resultStat("ELIXIR SPENT", String(format: "%.0f", battle.blueElixirSpent), accent)
+                        }
+                        Text(battle.blueTowerDamageDealt >= battle.redTowerDamageDealt
+                             ? "Your towers took less damage than the rival dealt to yours. Review the replay to refine your best pushes."
+                             : "Your towers took more damage than you dealt. Try defending earlier, then counter-pushing when the rival spends elixir.")
+                            .font(.caption).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.62)).padding(.horizontal, 12)
                         Button("CONTINUE") { screen = .home; self.battleHolder.model = nil; lastResultSaved = false }.buttonStyle(PrimaryButtonStyle())
                     }.padding(.horizontal, 24).padding(.bottom, 10)
                 } else {
@@ -645,6 +653,12 @@ struct RootView: View {
                 }
             }
         }.padding(.top, 4).coordinateSpace(name: "battle").overlay { if battle?.result == "VICTORY" { ConfettiView().allowsHitTesting(false) } }
+    }
+    private func resultStat(_ title: String, _ value: String, _ tint: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value).font(.headline.monospacedDigit()).foregroundStyle(tint)
+            Text(title).font(.system(size: 8, weight: .black)).tracking(0.7).foregroundStyle(.white.opacity(0.52))
+        }.frame(maxWidth: .infinity).padding(10).background(panel, in: RoundedRectangle(cornerRadius: 12))
     }
     private func updateMusic() {
         let phase = screen == .battle ? ((battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)) : 1

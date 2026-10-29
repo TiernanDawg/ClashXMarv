@@ -66,6 +66,8 @@ struct BattleSnapshot: Codable {
     var lastBlueCard: String?
     var lastRedCard: String?
     var actions: [BattleAction]
+    var blueElixirSpent: Double? = nil
+    var redElixirSpent: Double? = nil
     var cardLevels: [String: Int]
     var botLevel: Int
     var trophyBand: Int
@@ -101,6 +103,10 @@ final class BattleModel: ObservableObject {
     @Published private(set) var selectedCard: String?
     @Published private(set) var events: [BattleEvent] = []
     @Published private(set) var actions: [BattleAction] = []
+    private(set) var blueElixirSpent = 0.0
+    private(set) var redElixirSpent = 0.0
+    var blueTowerDamageDealt: Double { entities.filter { $0.team == .red && $0.tower }.reduce(0) { $0 + max(0, $1.maxHP - max(0, $1.hp)) } }
+    var redTowerDamageDealt: Double { entities.filter { $0.team == .blue && $0.tower }.reduce(0) { $0 + max(0, $1.maxHP - max(0, $1.hp)) } }
     @Published private(set) var seed: UInt64
     private var queue: [String]
     private let originalDeck: [String]
@@ -181,6 +187,8 @@ final class BattleModel: ObservableObject {
         nextCard = snapshot.nextCard
         selectedCard = nil
         actions = snapshot.actions
+        blueElixirSpent = snapshot.blueElixirSpent ?? 0
+        redElixirSpent = snapshot.redElixirSpent ?? 0
         queue = snapshot.queue
         originalDeck = snapshot.originalDeck
         redQueue = snapshot.redQueue
@@ -214,7 +222,7 @@ final class BattleModel: ObservableObject {
             originalDeck: originalDeck, entitySequence: entitySequence, aiClock: aiClock, blueAIClock: blueAIClock,
             bannerClock: bannerClock, rng: rng, lastEmote: lastEmote, opponentEmoteClock: opponentEmoteClock,
             fallenTowerKeys: fallenTowerKeys, processedDeaths: processedDeaths, activeSpells: activeSpells,
-            lastBlueCard: lastBlueCard, lastRedCard: lastRedCard, actions: actions, cardLevels: cardLevels,
+            lastBlueCard: lastBlueCard, lastRedCard: lastRedCard, actions: actions, blueElixirSpent: blueElixirSpent, redElixirSpent: redElixirSpent, cardLevels: cardLevels,
             botLevel: botLevel, trophyBand: trophyBand)
     }
     private func random() -> UInt64 {
@@ -260,12 +268,12 @@ final class BattleModel: ObservableObject {
         let xx = min(17.5, max(0.5, x)), yy = min(31.5, max(0.5, y))
         if team == .blue {
             guard hand.contains(id), blueElixir >= Double(cost), card.kind == .spell || card.behavior.contains(.tunnel) || canDeploy(team: .blue, x: xx, y: yy) else { return false }
-            blueElixir -= Double(cost); cycle(id); selectedCard = nil
+            blueElixir -= Double(cost); blueElixirSpent += Double(cost); cycle(id); selectedCard = nil
             if !isMirror { lastBlueCard = id }
             if !automatedBlue && !isReplaying { actions.append(BattleAction(time: elapsed, cardID: id, x: xx, y: yy)) }
         } else {
             guard redElixir >= Double(cost), redHand.contains(id), card.kind == .spell || card.behavior.contains(.tunnel) || canDeploy(team: .red, x: xx, y: yy) else { return false }
-            redElixir -= Double(cost)
+            redElixir -= Double(cost); redElixirSpent += Double(cost)
             if !isMirror { lastRedCard = id }
             if let index = redQueue.firstIndex(of: id) { redQueue.remove(at: index); redQueue.append(id) }
             redHand = Array(redQueue.prefix(4))
