@@ -10,8 +10,9 @@ final class ArenaScene: SKScene {
     var themeIndex = 0
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
-    private var arenaCamera: SKCameraNode?
+    private var lastAttackClock: [Int: Double] = [:]
     private var thermalLimited = false
+    private var arenaCamera: SKCameraNode?
     private var arenaPalette: (UIColor, UIColor, UIColor, UIColor) {
         let palettes: [(UIColor, UIColor, UIColor, UIColor)] = [
             (.systemGreen, UIColor(red: 0.17, green: 0.43, blue: 0.29, alpha: 1), UIColor(red: 0.42, green: 0.62, blue: 0.37, alpha: 1), .systemBlue),
@@ -68,6 +69,7 @@ final class ArenaScene: SKScene {
         entityNodes.removeAll()
         lastHP.removeAll()
         lastPositions.removeAll()
+        lastAttackClock.removeAll()
         let field = SKShapeNode(rect: CGRect(x: 2, y: 2, width: size.width - 4, height: size.height - 4), cornerRadius: 12)
         field.fillColor = arenaPalette.1
         field.strokeColor = arenaPalette.2
@@ -118,6 +120,7 @@ final class ArenaScene: SKScene {
             entityNodes.removeValue(forKey: id)
             lastHP.removeValue(forKey: id)
             lastPositions.removeValue(forKey: id)
+            lastAttackClock.removeValue(forKey: id)
         }
         for entity in model.entities {
             let node: SKNode
@@ -129,6 +132,10 @@ final class ArenaScene: SKScene {
                 addChild(node)
             }
             if let oldHP = lastHP[entity.id], entity.hp < oldHP {
+                if !reduceMotion && !thermalLimited && oldHP - entity.hp >= 180 {
+                    arenaCamera?.removeAction(forKey: "impact-shake")
+                    arenaCamera?.run(.sequence([.moveBy(x: 2.5, y: 1.5, duration: 0.025), .moveBy(x: -5, y: -3, duration: 0.05), .moveBy(x: 2.5, y: 1.5, duration: 0.025)]), withKey: "impact-shake")
+                }
                 if oldHP - entity.hp >= 180 {
                     arenaCamera?.removeAction(forKey: "impact-shake")
                     arenaCamera?.run(.sequence([.moveBy(x: 2.5, y: 1.5, duration: 0.025), .moveBy(x: -5, y: -3, duration: 0.05), .moveBy(x: 2.5, y: 1.5, duration: 0.025)]), withKey: "impact-shake")
@@ -151,6 +158,11 @@ final class ArenaScene: SKScene {
                 body.run(.sequence([.scaleX(to: 0.93, duration: 0.06), .scaleX(to: 1.0, duration: 0.09)]), withKey: "walk-squash")
             }
             lastPositions[entity.id] = newPosition
+            if !reduceMotion && !thermalLimited, let previous = lastAttackClock[entity.id], entity.attackClock - previous > 0.18, let body = node.childNode(withName: "body") as? SKShapeNode {
+                body.removeAction(forKey: "attack-squash")
+                body.run(.sequence([.scale(to: 1.18, duration: 0.055), .scale(to: 1.0, duration: 0.10)]), withKey: "attack-squash")
+            }
+            lastAttackClock[entity.id] = entity.attackClock
             node.position = newPosition
             node.zPosition = CGFloat(entity.y)
             node.alpha = (CardCatalog.byID[entity.cardID]?.behavior.contains(.invisible) == true && !entity.hasAttacked) ? 0.28 : 1
@@ -175,6 +187,10 @@ final class ArenaScene: SKScene {
                 label.position = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight + tileHeight)
                 label.zPosition = 1000
                 addChild(label)
+                if event.text.contains("CROWN") || event.text.contains("KING DOWN") {
+                    if !reduceMotion && !thermalLimited { addDebris(at: CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight)) }
+                    if event.text.contains("CROWN") && !reduceMotion { label.run(.sequence([.scale(to: 1.55, duration: 0.07), .scale(to: 1.0, duration: 0.12)])) }
+                }
                 if reduceMotion {
                     label.run(.sequence([.wait(forDuration: 0.25), .removeFromParent()]))
                 } else {
@@ -196,6 +212,20 @@ final class ArenaScene: SKScene {
         }
     }
 
+    private func addDebris(at point: CGPoint) {
+        let palette: [UIColor] = [.systemYellow, .systemOrange, .lightGray, .white]
+        for index in 0..<7 {
+            let piece = SKShapeNode(rectOf: CGSize(width: 3, height: 3), cornerRadius: 0.5)
+            piece.position = point
+            piece.fillColor = palette[index % palette.count]
+            piece.strokeColor = .clear
+            piece.zPosition = 950
+            addChild(piece)
+            let dx = CGFloat((index % 4) - 2) * tileWidth * 0.42
+            let dy = CGFloat((index / 4) + 1) * tileHeight * 0.5
+            piece.run(.sequence([.group([.moveBy(x: dx, y: dy, duration: 0.28), .rotate(byAngle: CGFloat(index) * 1.1, duration: 0.28), .fadeOut(withDuration: 0.28)]), .removeFromParent()]))
+        }
+    }
     private func makeNode(_ entity: BattleEntity) -> SKNode {
         let root = SKNode()
         let shadow = SKShapeNode(ellipseOf: CGSize(width: entity.tower ? tileWidth * 1.6 : tileWidth, height: tileHeight * 0.3))
@@ -241,6 +271,24 @@ final class ArenaScene: SKScene {
         root.addChild(body)
 
         let label = SKLabelNode(text: entity.king ? "♛" : (entity.tower ? "◆" : String(CardCatalog.byID[entity.cardID]?.name.prefix(2).uppercased() ?? "•")))
+        let markerPath = CGMutablePath()
+        if entity.team == .blue {
+            markerPath.move(to: CGPoint(x: bodySize.width * 0.55, y: bodySize.height * 0.52))
+            markerPath.addLine(to: CGPoint(x: bodySize.width * 0.42, y: bodySize.height * 0.30))
+            markerPath.addLine(to: CGPoint(x: bodySize.width * 0.68, y: bodySize.height * 0.30))
+        } else {
+            markerPath.move(to: CGPoint(x: bodySize.width * 0.42, y: bodySize.height * 0.52))
+            markerPath.addLine(to: CGPoint(x: bodySize.width * 0.68, y: bodySize.height * 0.52))
+            markerPath.addLine(to: CGPoint(x: bodySize.width * 0.55, y: bodySize.height * 0.30))
+        }
+        markerPath.closeSubpath()
+        let marker = SKShapeNode(path: markerPath)
+        marker.fillColor = entity.team == .blue ? .systemCyan : .systemOrange
+        marker.strokeColor = .white
+        marker.lineWidth = 0.5
+        marker.zPosition = 4
+        root.addChild(marker)
+
         label.fontName = "AvenirNext-Bold"
         label.fontSize = max(8, min(14, tileWidth * 0.62))
         label.verticalAlignmentMode = .center

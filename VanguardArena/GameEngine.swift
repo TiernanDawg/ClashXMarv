@@ -300,7 +300,7 @@ final class BattleModel: ObservableObject {
     }
     private func cast(_ card: CardDefinition, x: Double, y: Double, team: Team) {
         let analog = card.analog.lowercased()
-        ProceduralAudio.shared.play(.spell, enabled: soundEnabled)
+        if soundEnabled { ProceduralAudio.shared.play(.spell, enabled: true) }
         if analog.contains("rage") {
             activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 6.0))
             events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed))

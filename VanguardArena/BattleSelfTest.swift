@@ -15,6 +15,8 @@ enum BattleSelfTest {
         var maxEntities = 0
         for match in 0..<matches {
             let model = BattleModel(deck: CardCatalog.starterDeck, seed: UInt64(match + 1), automatedBlue: true)
+            model.setSoundEnabled(false)
+            model.setOpponentEmotesMuted(true)
             var previous: [Int: (Double, Double, Int)] = [:]
             var ticks = 0
             while !model.isFinished && ticks < 6_000 {
