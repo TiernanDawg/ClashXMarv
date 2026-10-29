@@ -18,6 +18,7 @@ struct RootView: View {
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
     @State private var detail: CardDefinition?
     @State private var lastResultSaved = false
+    @State private var lastSnapshotSave = Date.distantPast
     @State private var arenaRect: CGRect = .zero
     @State private var draggingCardID: String?
     @State private var tutorialStep = 0
@@ -51,19 +52,34 @@ struct RootView: View {
                     .background(.ultraThinMaterial, in: Capsule()).padding(.top, 8).transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .onAppear { updateMusic(); if profile.profile.meta?.tutorialCompleted != true { screen = .tutorial } }
+        .onAppear {
+            updateMusic()
+            if let snapshot = profile.profile.meta?.battleSnapshot, snapshot.isValid {
+                resumeBattle(snapshot)
+            } else if profile.profile.meta?.tutorialCompleted != true {
+                screen = .tutorial
+            }
+        }
         .onChange(of: screen) { _ in updateMusic() }
         .onChange(of: profile.profile.settings.music) { _ in updateMusic() }
         .onChange(of: scenePhase) { phase in
             if phase != .active {
-                profile.persist()
+                if let battle {
+                    if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
+                    saveBattleSnapshot(battle)
+                } else { profile.persist() }
                 ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, enabled: false)
             } else { updateMusic() }
         }
         .onReceive(timer) { _ in
             guard scenePhase == .active, screen == .battle, let battle, !battle.isFinished else { return }
             battle.setOpponentEmotesMuted(profile.profile.settings.muteOpponentEmotes)
+            battle.setSoundEnabled(profile.profile.settings.sound)
             battle.tick()
+            if Date().timeIntervalSince(lastSnapshotSave) >= 2 {
+                saveBattleSnapshot(battle)
+                lastSnapshotSave = Date()
+            }
             updateMusic()
             scene.showDamageNumbers = profile.profile.settings.damageNumbers
             scene.reduceMotion = profile.profile.settings.reduceMotion
@@ -581,10 +597,26 @@ struct RootView: View {
         let phase = screen == .battle ? ((battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)) : 1
         ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, phase: phase, enabled: profile.profile.settings.music)
     }
-    private func startReplay(_ record: BattleRecord) {
-        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
+    private func saveBattleSnapshot(_ model: BattleModel) {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            meta.battleSnapshot = model.snapshot()
+            p.meta = meta
+        }
+        lastSnapshotSave = Date()
+    }
+    private func resumeBattle(_ snapshot: BattleSnapshot) {
+        guard snapshot.isValid else {
+            profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
+            screen = .home
+            return
+        }
+        installBattle(BattleModel(snapshot: snapshot), savedResult: false)
+    }
+    private func installBattle(_ model: BattleModel, savedResult: Bool) {
         battleHolder.model = model
-        lastResultSaved = true
+        lastResultSaved = savedResult
+        lastSnapshotSave = Date()
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
         scene.battle = model
@@ -605,29 +637,15 @@ struct RootView: View {
         screen = .battle
         scene.render(model)
     }
+    private func startReplay(_ record: BattleRecord) {
+        profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
+        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
+        installBattle(model, savedResult: true)
+    }
     private func startBattle() {
+        profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
         let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
-        battleHolder.model = model; lastResultSaved = false
-        scene = ArenaScene(size: CGSize(width: 360, height: 640))
-        scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
-        scene.battle = model
-        scene.scaleMode = .resizeFill
-        scene.onDrop = { x, y in
-            let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
-            if deployed {
-                ProceduralAudio.shared.haptic(.medium, enabled: profile.profile.settings.haptics)
-                ProceduralAudio.shared.play(.deploy, enabled: profile.profile.settings.sound)
-            } else { model.cancelSelection() }
-            scene.render(model)
-        }
-        scene.scaleMode = .resizeFill
-        scene.backgroundColor = .clear
-        screen = .battle
-        scene.showDamageNumbers = profile.profile.settings.damageNumbers
-        scene.reduceMotion = profile.profile.settings.reduceMotion
-        scene.highContrast = profile.profile.settings.highContrast
-        scene.hapticsEnabled = profile.profile.settings.haptics
-        scene.render(model)
+        installBattle(model, savedResult: false)
     }
     private func header(_ title: String, back: Screen) -> some View {
         HStack(spacing: 12) {

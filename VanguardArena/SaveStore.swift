@@ -34,6 +34,7 @@ struct MetaProgression: Codable {
     var claimedSeasonTiers: [Int] = []
     var tutorialCompleted = false
     var cardCopies: [String: Int]? = [:]
+    var battleSnapshot: BattleSnapshot? = nil
 }
 struct PlayerProfile: Codable {
     var schemaVersion = 3
@@ -101,6 +102,7 @@ final class ProfileStore: ObservableObject {
             valid.meta = valid.meta ?? MetaProgression()
             if var meta = valid.meta {
                 meta.cardCopies = meta.cardCopies ?? [:]
+                if let snapshot = meta.battleSnapshot, !snapshot.isValid { meta.battleSnapshot = nil }
                 valid.meta = meta
             }
             if let meta = valid.meta, !Calendar.current.isDateInToday(meta.dailyDate) {

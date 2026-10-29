@@ -52,7 +52,7 @@ The CI workflow validates all 91 roster names, runs XcodeGen, builds and archive
 
 ## Validation boundaries
 
-The implementation uses original procedural presentation and a shared behavior engine; it does not reproduce proprietary assets or extracted game code. Card values are close-role tuning approximations rather than an authoritative historical balance dump, and some effects are simplified. It does not yet have a unique bespoke idle/walk/attack/death rig and unique attack sound for every card, exact proprietary spell falloff for every analog, full live-battle state serialization after force-quit, or a completed 1,000-match report wired into CI. The unsigned IPA must be signed before installation. Drag/drop, accessibility, battery/thermal behavior, 60/120 FPS, and crash-free operation still require real-device validation.
+The implementation uses original procedural presentation and a shared behavior engine; it does not reproduce proprietary assets or extracted game code. Card values are close-role tuning approximations rather than an authoritative historical balance dump, and some effects are simplified. It does not yet have a unique bespoke idle/walk/attack/death rig and unique attack sound for every card, exact proprietary spell falloff for every analog, a bespoke idle/walk/attack/death rig for every individual card, exact proprietary spell falloff for every analog, or a completed 1,000-match report wired into CI. Live battle state is now saved to versioned local JSON and validated/restored after relaunch. The unsigned IPA must be signed before installation. Drag/drop, accessibility, battery/thermal behavior, 60/120 FPS, and crash-free operation still require real-device validation.
 
 
 ## Research notes and sources

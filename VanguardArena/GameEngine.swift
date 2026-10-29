@@ -27,13 +27,57 @@ struct BattleEntity: Identifiable, Codable {
     var awake = false
     var alive: Bool { hp > 0 }
 }
-private struct TimedSpell {
+struct TimedSpell: Codable {
     var cardID: String
     var team: Team
     var x: Double
     var y: Double
     var remaining: Double
     var tickClock: Double = 0
+}
+struct BattleSnapshot: Codable {
+    var version = 1
+    var savedAt = Date()
+    var seed: UInt64
+    var elapsed: Double
+    var energyClock: Double
+    var overtime: Bool
+    var blueElixir: Double
+    var redElixir: Double
+    var blueCrowns: Int
+    var redCrowns: Int
+    var entities: [BattleEntity]
+    var hand: [String]
+    var nextCard: String
+    var queue: [String]
+    var redQueue: [String]
+    var redHand: [String]
+    var originalDeck: [String]
+    var entitySequence: Int
+    var aiClock: Double
+    var blueAIClock: Double
+    var bannerClock: Double
+    var rng: UInt64
+    var lastEmote: Double
+    var opponentEmoteClock: Double
+    var fallenTowerKeys: Set<String>
+    var processedDeaths: Set<Int>
+    var activeSpells: [TimedSpell]
+    var lastBlueCard: String?
+    var lastRedCard: String?
+    var actions: [BattleAction]
+    var cardLevels: [String: Int]
+    var botLevel: Int
+    var trophyBand: Int
+    var isValid: Bool {
+        version == 1 && elapsed.isFinite && elapsed >= 0 && elapsed < 300 &&
+        energyClock.isFinite && blueElixir.isFinite && redElixir.isFinite &&
+        blueElixir >= 0 && blueElixir <= 10 && redElixir >= 0 && redElixir <= 10 &&
+        entities.count <= 1000 && hand.count == 4 && redHand.count == 4 &&
+        queue.count == 8 && redQueue.count == 8 && originalDeck.count == 8 &&
+        entities.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.hp.isFinite && $0.maxHP.isFinite && $0.x >= 0 && $0.x <= 18 && $0.y >= 0 && $0.y <= 32 && ($0.cardID == "tower" || CardCatalog.byID[$0.cardID] != nil) } &&
+        activeSpells.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.remaining.isFinite && CardCatalog.byID[$0.cardID] != nil }
+    }
 }
 struct BattleEvent: Identifiable {
     let id = UUID()
@@ -79,6 +123,7 @@ final class BattleModel: ObservableObject {
     private var lastEmote = -100.0
     private var opponentEmoteClock = 24.0
     private var opponentEmotesMuted = false
+    private var soundEnabled = true
     private var fallenTowerKeys = Set<String>()
     private var processedDeaths = Set<Int>()
     private var lastDamageEventTime: [Int: Double] = [:]
@@ -116,6 +161,55 @@ final class BattleModel: ObservableObject {
         addTower(.blue, 3.2, 2, false); addTower(.blue, 14.8, 2, false); addTower(.blue, 9, 0.7, true)
         addTower(.red, 3.2, 30, false); addTower(.red, 14.8, 30, false); addTower(.red, 9, 31.3, true)
         aiClock = max(1.2, 3.4 - Double(trophyBand) * 0.12) + Double(random() % 100) / 100
+    }
+    init(snapshot: BattleSnapshot) {
+        seed = snapshot.seed
+        elapsed = snapshot.elapsed
+        energyClock = snapshot.energyClock
+        overtime = snapshot.overtime
+        blueElixir = snapshot.blueElixir
+        redElixir = snapshot.redElixir
+        blueCrowns = snapshot.blueCrowns
+        redCrowns = snapshot.redCrowns
+        entities = snapshot.entities
+        hand = snapshot.hand
+        nextCard = snapshot.nextCard
+        selectedCard = nil
+        actions = snapshot.actions
+        queue = snapshot.queue
+        originalDeck = snapshot.originalDeck
+        redQueue = snapshot.redQueue
+        redHand = snapshot.redHand
+        entitySequence = snapshot.entitySequence
+        aiClock = snapshot.aiClock
+        blueAIClock = snapshot.blueAIClock
+        bannerClock = snapshot.bannerClock
+        rng = snapshot.rng
+        lastEmote = snapshot.lastEmote
+        opponentEmoteClock = snapshot.opponentEmoteClock
+        fallenTowerKeys = snapshot.fallenTowerKeys
+        processedDeaths = snapshot.processedDeaths
+        activeSpells = snapshot.activeSpells
+        lastBlueCard = snapshot.lastBlueCard
+        lastRedCard = snapshot.lastRedCard
+        cardLevels = snapshot.cardLevels
+        botLevel = snapshot.botLevel
+        trophyBand = snapshot.trophyBand
+        replayActions = []
+        isReplaying = false
+        automatedBlue = false
+        banner = elapsed >= 240 ? "TRIPLE ELIXIR" : (elapsed >= 120 ? "DOUBLE ELIXIR" : "BATTLE!")
+    }
+    func snapshot() -> BattleSnapshot? {
+        guard !isFinished, !isReplaying else { return nil }
+        return BattleSnapshot(seed: seed, elapsed: elapsed, energyClock: energyClock, overtime: overtime,
+            blueElixir: blueElixir, redElixir: redElixir, blueCrowns: blueCrowns, redCrowns: redCrowns,
+            entities: entities, hand: hand, nextCard: nextCard, queue: queue, redQueue: redQueue, redHand: redHand,
+            originalDeck: originalDeck, entitySequence: entitySequence, aiClock: aiClock, blueAIClock: blueAIClock,
+            bannerClock: bannerClock, rng: rng, lastEmote: lastEmote, opponentEmoteClock: opponentEmoteClock,
+            fallenTowerKeys: fallenTowerKeys, processedDeaths: processedDeaths, activeSpells: activeSpells,
+            lastBlueCard: lastBlueCard, lastRedCard: lastRedCard, actions: actions, cardLevels: cardLevels,
+            botLevel: botLevel, trophyBand: trophyBand)
     }
     private func random() -> UInt64 {
         rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17
@@ -206,6 +300,7 @@ final class BattleModel: ObservableObject {
     }
     private func cast(_ card: CardDefinition, x: Double, y: Double, team: Team) {
         let analog = card.analog.lowercased()
+        ProceduralAudio.shared.play(.spell, enabled: soundEnabled)
         if analog.contains("rage") {
             activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 6.0))
             events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed))
@@ -268,6 +363,7 @@ final class BattleModel: ObservableObject {
         if card.behavior.contains(.elixirPump) && team == .blue { blueElixir = min(10, blueElixir + 1) }
     }
     func setOpponentEmotesMuted(_ muted: Bool) { opponentEmotesMuted = muted }
+    func setSoundEnabled(_ enabled: Bool) { soundEnabled = enabled }
     func emote(_ label: String) -> Bool {
         guard elapsed - lastEmote >= 4, !isFinished else { return false }
         lastEmote = elapsed; events.append(BattleEvent(x: 9, y: 7, text: label, born: elapsed)); return true
@@ -489,7 +585,12 @@ final class BattleModel: ObservableObject {
                     let spawnX = min(17.5, max(0.5, dead.x + (Double(n) - Double(count - 1) / 2) * 0.45))
                     pendingSpawns.append((dead.team, spawnX, dead.y, child))
                 }
-                if analog.contains("lumberjack") { events.append(BattleEvent(x: dead.x, y: dead.y, text: "RAGE!", born: elapsed)) }
+                if analog.contains("lumberjack") {
+                    if let rage = CardCatalog.all.first(where: { $0.analog == "Rage" }) {
+                        activeSpells.append(TimedSpell(cardID: rage.id, team: dead.team, x: dead.x, y: dead.y, remaining: 5.0))
+                    }
+                    events.append(BattleEvent(x: dead.x, y: dead.y, text: "RAGE!", born: elapsed))
+                }
             }
         }
         for spawn in pendingSpawns { createSpawn(team: spawn.0, x: spawn.1, y: spawn.2, cardID: spawn.3) }
@@ -658,6 +759,7 @@ final class BattleModel: ObservableObject {
                 else { kind = ("Legendary", 12 * 3600, 900, 10, 65) }
                 meta.chestSlots.append(ChestSlot(type: kind.0, startedAt: Date(), duration: kind.1, gold: kind.2, gems: kind.3, copies: kind.4))
             }
+            meta.battleSnapshot = nil
             p.meta = meta
         }
     }

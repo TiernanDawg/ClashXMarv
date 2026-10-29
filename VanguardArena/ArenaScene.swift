@@ -10,6 +10,8 @@ final class ArenaScene: SKScene {
     var themeIndex = 0
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
+    private var arenaCamera: SKCameraNode?
+    private var thermalLimited = false
     private var arenaPalette: (UIColor, UIColor, UIColor, UIColor) {
         let palettes: [(UIColor, UIColor, UIColor, UIColor)] = [
             (.systemGreen, UIColor(red: 0.17, green: 0.43, blue: 0.29, alpha: 1), UIColor(red: 0.42, green: 0.62, blue: 0.37, alpha: 1), .systemBlue),
@@ -37,15 +39,28 @@ final class ArenaScene: SKScene {
     var onDrop: ((Double, Double) -> Void)?
 
     override func didMove(to view: SKView) {
+        let thermal = ProcessInfo.processInfo.thermalState
+        view.preferredFramesPerSecond = (thermal == .serious || thermal == .critical) ? 60 : UIScreen.main.maximumFramesPerSecond
+        thermalLimited = thermal == .serious || thermal == .critical
         backgroundColor = arenaPalette.0
         drawArena()
+        installCamera()
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
         drawArena()
+        installCamera()
         if let battle { render(battle) }
     }
 
+    private func installCamera() {
+        arenaCamera?.removeFromParent()
+        let cameraNode = SKCameraNode()
+        cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        addChild(cameraNode)
+        camera = cameraNode
+        arenaCamera = cameraNode
+    }
     private func drawArena() {
         ghost = nil
         gridPreview = nil
@@ -114,8 +129,14 @@ final class ArenaScene: SKScene {
                 addChild(node)
             }
             if let oldHP = lastHP[entity.id], entity.hp < oldHP {
-                node.removeAction(forKey: "hit-squash")
-                node.run(.sequence([.scale(to: 1.12, duration: 0.055), .scale(to: 1.0, duration: 0.11)]), withKey: "hit-squash")
+                if oldHP - entity.hp >= 180 {
+                    arenaCamera?.removeAction(forKey: "impact-shake")
+                    arenaCamera?.run(.sequence([.moveBy(x: 2.5, y: 1.5, duration: 0.025), .moveBy(x: -5, y: -3, duration: 0.05), .moveBy(x: 2.5, y: 1.5, duration: 0.025)]), withKey: "impact-shake")
+                }
+                if !reduceMotion && !thermalLimited {
+                    node.removeAction(forKey: "hit-squash")
+                    node.run(.sequence([.scale(to: 1.12, duration: 0.055), .scale(to: 1.0, duration: 0.11)]), withKey: "hit-squash")
+                }
                 let flash = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.7)
                 flash.fillColor = .white.withAlphaComponent(0.72)
                 flash.strokeColor = .clear
@@ -125,7 +146,7 @@ final class ArenaScene: SKScene {
             }
             lastHP[entity.id] = entity.hp
             let newPosition = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
-            if let oldPosition = lastPositions[entity.id], hypot(Double(newPosition.x - oldPosition.x), Double(newPosition.y - oldPosition.y)) > 0.6, let body = node.childNode(withName: "body") {
+            if !reduceMotion && !thermalLimited, let oldPosition = lastPositions[entity.id], hypot(Double(newPosition.x - oldPosition.x), Double(newPosition.y - oldPosition.y)) > 0.6, let body = node.childNode(withName: "body") {
                 body.removeAction(forKey: "walk-squash")
                 body.run(.sequence([.scaleX(to: 0.93, duration: 0.06), .scaleX(to: 1.0, duration: 0.09)]), withKey: "walk-squash")
             }
@@ -216,7 +237,7 @@ final class ArenaScene: SKScene {
         body.fillColor = entity.team == .blue ? .systemBlue : .systemRed
         body.strokeColor = .white.withAlphaComponent(0.85)
         body.lineWidth = 1.2
-        body.run(.repeatForever(.sequence([.scale(to: 1.035, duration: 0.38), .scale(to: 1.0, duration: 0.38)])), withKey: "idle-breathe")
+        if !reduceMotion && !thermalLimited { body.run(.repeatForever(.sequence([.scale(to: 1.035, duration: 0.38), .scale(to: 1.0, duration: 0.38)])), withKey: "idle-breathe") }
         root.addChild(body)
 
         let label = SKLabelNode(text: entity.king ? "♛" : (entity.tower ? "◆" : String(CardCatalog.byID[entity.cardID]?.name.prefix(2).uppercased() ?? "•")))

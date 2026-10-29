@@ -1,5 +1,6 @@
 import AVFoundation
 import UIKit
+import CoreHaptics
 
 enum MusicMode: String { case menu, battle }
 
@@ -10,6 +11,7 @@ final class ProceduralAudio {
     private let sfxPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
     private var ready = false
+    private var hapticEngine: CHHapticEngine?
     private var musicKey = ""
 
     private init() {
@@ -21,6 +23,10 @@ final class ProceduralAudio {
             try engine.start()
             sfxPlayer.play()
             ready = true
+            if CHHapticEngine.capabilitiesForHardware().supportsHaptics {
+                hapticEngine = try? CHHapticEngine()
+                try? hapticEngine?.start()
+            }
         } catch {
             ready = false
         }
@@ -80,8 +86,34 @@ final class ProceduralAudio {
         musicPlayer.play()
     }
 
+    func playAttack(card: CardDefinition, enabled: Bool = true) {
+        guard enabled, ready else { return }
+        let signature = card.name.unicodeScalars.reduce(0) { ($0 * 31 + Int($1.value)) % 480 }
+        let frequency = 160.0 + Double(signature)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
+        let frames = AVAudioFrameCount(22050 * 0.055)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let channel = buffer.floatChannelData?[0] else { return }
+        buffer.frameLength = frames
+        for i in 0..<Int(frames) {
+            let t = Double(i) / 22050
+            channel[i] = Float(sin(2 * Double.pi * frequency * t) * min(1, t * 80) * max(0, 1 - t / 0.055) * 0.10)
+        }
+        sfxPlayer.scheduleBuffer(buffer)
+    }
+
     func haptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle, enabled: Bool = true) {
         guard enabled else { return }
+        if let hapticEngine, CHHapticEngine.capabilitiesForHardware().supportsHaptics {
+            let intensity: Float = style == .heavy ? 0.95 : (style == .medium ? 0.65 : 0.35)
+            let event = CHHapticEvent(eventType: .hapticTransient, parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.62)
+            ], relativeTime: 0)
+            if let pattern = try? CHHapticPattern(events: [event], parameters: []),
+               let player = try? hapticEngine.makePlayer(with: pattern),
+               (try? player.start(atTime: 0)) != nil { return }
+        }
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }

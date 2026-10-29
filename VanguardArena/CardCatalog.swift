@@ -245,6 +245,7 @@ Mirror Dimension|1|spell|Mirror
         if a.contains("miner") || a.contains("tunnel") { b.insert(.tunnel) }
         if a.contains("inferno") || a.contains("beam") || a.contains("sparky") || a.contains("ramping") { b.insert(.rampBeam) }
         if ["ice","freeze","slow","web","snowball"].contains(where: { a.contains($0) }) || combined.contains("spider dude") { b.insert(.slow) }
+        if a.contains("ice spirit") { b.insert(.stun) }
         if ["electro","zap","zappies","stun","freeze"].contains(where: { a.contains($0) }) { b.insert(.stun) }
         if ["witch","tombstone","furnace","goblin hut","barbarian hut"].contains(where: { a.contains($0) }) { b.insert(.spawner) }
         if ["giant skeleton","lumberjack","golem","lava hound","skeleton barrel","elixir golem"].contains(where: { a.contains($0) }) { b.insert(.deathSpawn) }
