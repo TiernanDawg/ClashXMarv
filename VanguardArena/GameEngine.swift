@@ -41,6 +41,8 @@ final class BattleModel: ObservableObject {
     @Published private(set) var events: [BattleEvent] = []
     @Published private(set) var seed: UInt64
     private var queue: [String]
+    private var redQueue: [String] = []
+    private var redHand: [String] = []
     private var entitySequence = 0
     private var aiClock = 2.4
     private var bannerClock = 3.0
@@ -59,8 +61,15 @@ final class BattleModel: ObservableObject {
         queue = chosen
         self.seed = seed == 0 ? 1 : seed
         rng = self.seed
+        let offset = Int(random() % UInt64(max(1, queue.count)))
+        queue = Array(queue[offset...]) + Array(queue[..<offset])
         hand = Array(queue.prefix(4))
         nextCard = queue.dropFirst(4).first ?? queue[0]
+        redQueue = Array(CardCatalog.all.filter { $0.kind != .spell }.map(\.id).prefix(8))
+        if redQueue.count < 8 { redQueue = CardCatalog.starterDeck }
+        let redOffset = Int(random() % UInt64(max(1, redQueue.count)))
+        redQueue = Array(redQueue[redOffset...]) + Array(redQueue[..<redOffset])
+        redHand = Array(redQueue.prefix(4))
         addTower(.blue, 3.2, 2, false); addTower(.blue, 14.8, 2, false); addTower(.blue, 9, 0.7, true)
         addTower(.red, 3.2, 30, false); addTower(.red, 14.8, 30, false); addTower(.red, 9, 31.3, true)
     }
@@ -86,11 +95,13 @@ final class BattleModel: ObservableObject {
         guard !isFinished, let card = CardCatalog.byID[id] else { return false }
         let xx = min(17.5, max(0.5, x)), yy = min(31.5, max(0.5, y))
         if team == .blue {
-            guard hand.contains(id), blueElixir >= Double(card.cost), card.kind == .spell || yy <= 15.5 else { return false }
+            guard hand.contains(id), blueElixir >= Double(card.cost), card.kind == .spell || canDeploy(team: .blue, x: xx, y: yy) else { return false }
             blueElixir -= Double(card.cost); cycle(id); selectedCard = nil
         } else {
-            guard redElixir >= Double(card.cost), card.kind == .spell || yy >= 16.5 else { return false }
+            guard redElixir >= Double(card.cost), redHand.contains(id), card.kind == .spell || canDeploy(team: .red, x: xx, y: yy) else { return false }
             redElixir -= Double(card.cost)
+            if let index = redQueue.firstIndex(of: id) { redQueue.remove(at: index); redQueue.append(id) }
+            redHand = Array(redQueue.prefix(4))
         }
         if card.kind == .spell { cast(card, x: xx, y: yy, team: team); return true }
         entitySequence += 1
@@ -98,6 +109,14 @@ final class BattleModel: ObservableObject {
         entities.append(BattleEntity(id: entitySequence, cardID: card.id, team: team, x: xx, y: yy, hp: hp, maxHP: hp, deployClock: Balance.deployDelay, lifetime: card.kind == .building ? 30 : 0))
         events.append(BattleEvent(x: xx, y: yy, text: "DEPLOY", born: elapsed))
         return true
+    }
+    private func canDeploy(team: Team, x: Double, y: Double) -> Bool {
+        let baseValid = team == .blue ? y <= 15.5 : y >= 16.5
+        if baseValid { return true }
+        let laneTowerX = x < 9 ? 3.2 : 14.8
+        let opponent: Team = team == .blue ? .red : .blue
+        let pocketOpen = entities.contains { $0.tower && !$0.king && $0.team == opponent && !$0.alive && abs($0.x - laneTowerX) < 2 }
+        return pocketOpen && (team == .blue ? y <= 19.5 : y >= 12.5)
     }
     private func cycle(_ id: String) {
         if let index = queue.firstIndex(of: id) { queue.remove(at: index); queue.append(id) }
@@ -154,7 +173,7 @@ final class BattleModel: ObservableObject {
         if bannerClock <= 0 { banner = "" }
     }
     private func playAI() {
-        let affordable = CardCatalog.all.filter { $0.cost <= Int(floor(redElixir)) && $0.kind != .spell }
+        let affordable = redHand.compactMap { CardCatalog.byID[$0] }.filter { $0.cost <= Int(floor(redElixir)) }
         guard !affordable.isEmpty else { return }
         let choice = affordable[Int(random() % UInt64(affordable.count))]
         let lane = random() % 2 == 0 ? 3.2 : 14.8
@@ -202,7 +221,8 @@ final class BattleModel: ObservableObject {
             let step = card.speed * Balance.tick
             if !card.behavior.contains(.flying) && entities[i].y > 14 && entities[i].y < 18 {
                 let bridgeX = entities[i].x < 9 ? 3.2 : 14.8
-                entities[i].x += (bridgeX - entities[i].x) * min(1, step)
+                entities[i].x += (bridgeX - entities[i].x) * min(1, step * 1.8)
+                entities[i].y += dy / distance * step
             } else {
                 entities[i].x += dx / distance * step
                 entities[i].y += dy / distance * step
