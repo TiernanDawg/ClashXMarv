@@ -65,9 +65,9 @@ struct RootView: View {
                         .accessibilityLabel("Settings")
                 }
                 HStack(spacing: 12) {
-                    statCard("TROPHIES", "(profile.profile.trophies)", "trophy.fill", gold)
-                    statCard("KING LEVEL", "(profile.profile.kingLevel)", "crown.fill", accent)
-                    statCard("GOLD", "(profile.profile.gold)", "circle.hexagongrid.fill", gold)
+                    statCard("TROPHIES", "\(profile.profile.trophies)", "trophy.fill", gold)
+                    statCard("KING LEVEL", "\(profile.profile.kingLevel)", "crown.fill", accent)
+                    statCard("GOLD", "\(profile.profile.gold)", "circle.hexagongrid.fill", gold)
                 }
                 ZStack(alignment: .bottomLeading) {
                     RoundedRectangle(cornerRadius: 28).fill(LinearGradient(colors: [Color(red: 0.11, green: 0.32, blue: 0.55), Color(red: 0.15, green: 0.14, blue: 0.34), Color(red: 0.27, green: 0.12, blue: 0.33)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -122,7 +122,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             header("Battle Deck", back: .home)
             HStack {
-                VStack(alignment: .leading, spacing: 4) { Text("(profile.profile.selectedDeck.count)/8 CARDS").font(.headline.bold()); Text("Average elixir (String(format: "%.1f", averageCost)) · 4-card cycle (cycleCost)").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                VStack(alignment: .leading, spacing: 4) { Text("\(profile.profile.selectedDeck.count)/8 CARDS").font(.headline.bold()); Text("Average elixir \(String(format: "%.1f", averageCost)) · 4-card cycle \(cycleCost)").font(.caption).foregroundStyle(.white.opacity(0.6)) }
                 Spacer()
                 if profile.profile.selectedDeck.count == 8 { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.title2) }
             }.padding(16)
@@ -130,7 +130,7 @@ struct RootView: View {
                 ForEach(0..<8, id: \.self) { i in
                     if i < profile.profile.selectedDeck.count, let card = CardCatalog.byID[profile.profile.selectedDeck[i]] {
                         Button { toggleDeck(card) } label: { MiniCard(card: card).overlay(alignment: .topTrailing) { Image(systemName: "minus.circle.fill").foregroundStyle(.white).background(.black, in: Circle()).offset(x: 3, y: -3) } }
-                    } else { RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4])).frame(height: 92).overlay(Text("(i + 1)").foregroundStyle(.white.opacity(0.3))) }
+                    } else { RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4])).frame(height: 92).overlay(Text("\(i + 1)").foregroundStyle(.white.opacity(0.3))) }
                 }
             }.padding(.horizontal, 14)
             if !hasAirDefense || !hasWinCondition {
@@ -143,7 +143,7 @@ struct RootView: View {
                         Button { toggleDeck(card) } label: {
                             HStack(spacing: 10) {
                                 CardGlyph(card: card, size: 44)
-                                VStack(alignment: .leading, spacing: 3) { Text(card.name).font(.subheadline.bold()).lineLimit(1); Text("(card.cost) elixir · (card.rarity.rawValue)").font(.caption2).foregroundStyle(accent) }
+                                VStack(alignment: .leading, spacing: 3) { Text\(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir · \(card.rarity.rawValue)").font(.caption2).foregroundStyle(accent) }
                                 Spacer(minLength: 0)
                                 if profile.profile.selectedDeck.contains(card.id) { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
                             }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(profile.profile.selectedDeck.contains(card.id) ? accent.opacity(0.7) : .clear, lineWidth: 1.5))
@@ -168,10 +168,10 @@ struct RootView: View {
     private var cardCollection: some View {
         VStack(spacing: 0) {
             header("Card Collection", back: .home)
-            HStack { Text("(CardCatalog.all.count) original cards").font(.subheadline); Spacer(); Text("Tap for stats").font(.caption).foregroundStyle(.white.opacity(0.5)) }.padding(16)
+            HStack { Text("\(CardCatalog.all.count) original cards").font(.subheadline); Spacer(); Text("Tap for stats").font(.caption).foregroundStyle(.white.opacity(0.5)) }.padding(16)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ForEach(CardCatalog.all) { card in Button { detail = card } label: { HStack(spacing: 10) { CardGlyph(card: card, size: 48); VStack(alignment: .leading, spacing: 4) { Text(card.name).font(.subheadline.bold()).lineLimit(1); Text("(card.cost) elixir").font(.caption).foregroundStyle(accent); Text(card.rarity.rawValue.uppercased()).font(.system(size: 9, weight: .bold)).foregroundStyle(gold) }; Spacer(minLength: 0) }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 15)) } }
+                    ForEach(CardCatalog.all) { card in Button { detail = card } label: { HStack(spacing: 10) { CardGlyph(card: card, size: 48); VStack(alignment: .leading, spacing: 4) { Text\(card.name).font(.subheadline.bold()).lineLimit(1); Text("\(card.cost) elixir").font(.caption).foregroundStyle(accent); Text\(card.rarity.rawValue.uppercased()).font(.system(size: 9, weight: .bold)).foregroundStyle(gold) }; Spacer(minLength: 0) }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 15)) } }
                 }.padding(14)
             }
         }
@@ -181,16 +181,17 @@ struct RootView: View {
             header("Trophy Road", back: .home)
             VStack(spacing: 12) {
                 Image(systemName: "trophy.circle.fill").font(.system(size: 64)).foregroundStyle(gold).padding(.top, 18)
-                Text("(profile.profile.trophies)").font(.system(size: 38, weight: .black, design: .rounded))
+                Text("\(profile.profile.trophies)").font(.system(size: 38, weight: .black, design: .rounded))
                 Text("CURRENT TROPHIES").font(.caption.bold()).tracking(2).foregroundStyle(.white.opacity(0.55))
             }.frame(maxWidth: .infinity).padding(.bottom, 20)
             ScrollView {
                 VStack(spacing: 10) {
                     ForEach(Array(stride(from: 0, through: 12, by: 1)), id: \.self) { rank in
                         let threshold = rank * 300
+                        let arenaName = rank == 0 ? "Training Grounds" : ["Iron Circuit", "Neon District", "Mystic Ruins", "Skyline Siege", "Quantum Core", "Shadow Sector", "Titan Foundry", "Stellar Rift", "Doom Citadel", "Cosmic Gate", "Eternal Nexus"][min(10, max(0, rank - 1))]
                         HStack(spacing: 14) {
                             ZStack { Circle().fill(rank * 300 <= profile.profile.trophies ? accent.opacity(0.22) : .white.opacity(0.05)).frame(width: 48, height: 48); Image(systemName: rank == 12 ? "crown.fill" : "shield.fill").foregroundStyle(rank * 300 <= profile.profile.trophies ? gold : .white.opacity(0.35)) }
-                            VStack(alignment: .leading, spacing: 3) { Text(rank == 12 ? "Legendary Summit" : "Arena (rank + 1)").font(.headline.bold()); Text("(threshold) trophies · (rank == 0 ? "Training Grounds" : ["Iron Circuit","Neon District","Mystic Ruins","Skyline Siege","Quantum Core","Shadow Sector","Titan Foundry","Stellar Rift","Doom Citadel","Cosmic Gate","Eternal Nexus"][min(10, max(0, rank - 1))])").font(.caption).foregroundStyle(.white.opacity(0.55)) }
+                            VStack(alignment: .leading, spacing: 3) { Text(rank == 12 ? "Legendary Summit" : "Arena \(rank + 1)").font(.headline.bold()); Text("\(threshold) trophies · \(arenaName)").font(.caption).foregroundStyle(.white.opacity(0.55)) }
                             Spacer(); if profile.profile.trophies >= threshold { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green) }
                         }.padding(12).background(panel, in: RoundedRectangle(cornerRadius: 16))
                     }
@@ -203,10 +204,10 @@ struct RootView: View {
             header("Player Profile", back: .home)
             Image(systemName: "person.crop.circle.fill").font(.system(size: 76)).foregroundStyle(accent).padding(.top, 24)
             Text("ARENA COMMANDER").font(.headline.bold()).tracking(1.5)
-            Text("King Level (profile.profile.kingLevel)").font(.title2.bold())
-            HStack(spacing: 10) { statCard("WINS", "(profile.profile.wins)", "checkmark.circle.fill", .green); statCard("LOSSES", "(profile.profile.losses)", "xmark.circle.fill", .red); statCard("CROWNS", "(profile.profile.crowns)", "crown.fill", gold) }.padding(.horizontal, 16)
-            HStack { Text("XP PROGRESS"); Spacer(); Text("(profile.profile.xp % 100)/100") }.font(.caption.bold()).padding(.horizontal, 18)
-            ProgressView(value: Double(profile.profile.xp % 100), total: 100).tint(accent).padding(.horizontal, 18)
+            Text("King Level \(profile.profile.kingLevel)").font(.title2.bold())
+            HStack(spacing: 10) { statCard("WINS", "\(profile.profile.wins)", "checkmark.circle.fill", .green); statCard("LOSSES", "\(profile.profile.losses)", "xmark.circle.fill", .red); statCard("CROWNS", "\(profile.profile.crowns)", "crown.fill", gold) }.padding(.horizontal, 16)
+            HStack { Text("XP PROGRESS"); Spacer(); Text("\(profile.profile.xp % 100)/100") }.font(.caption.bold()).padding(.horizontal, 18)
+            ProgressView(value: Double\(profile.profile.xp % 100), total: 100).tint(accent).padding(.horizontal, 18)
             Spacer()
             Button("VIEW BATTLE LOG") { screen = .log }.buttonStyle(PrimaryButtonStyle())
             Spacer()
@@ -250,7 +251,7 @@ struct RootView: View {
             header("Daily Supply", back: .home)
             Text("A gold-only shop. No purchases, ads, or premium-only cards.").font(.subheadline).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 20)
             ForEach(Array(CardCatalog.all.prefix(6))) { card in
-                HStack { CardGlyph(card: card, size: 52); VStack(alignment: .leading) { Text(card.name).font(.headline); Text("Card copies · (card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
+                HStack { CardGlyph(card: card, size: 52); VStack(alignment: .leading) { Text\(card.name).font(.headline); Text("Card copies · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
                     .padding(12).background(panel, in: RoundedRectangle(cornerRadius: 15)).padding(.horizontal, 16)
             }
             Spacer()
@@ -259,7 +260,7 @@ struct RootView: View {
     private func buyCard(_ card: CardDefinition) {
         guard profile.profile.gold >= 100 else { toast = "Not enough gold"; return }
         profile.update { p in p.gold -= 100; if !p.unlocked.contains(card.id) { p.unlocked.append(card.id) }; p.levels[card.id, default: 1] = min(13, p.levels[card.id, default: 1] + 1) }
-        toast = "(card.name) upgraded"
+        toast = "\(card.name) upgraded"
     }
     private var battleLog: some View {
         VStack(spacing: 0) {
@@ -267,7 +268,7 @@ struct RootView: View {
             if profile.profile.battleLog.isEmpty { Spacer(); Image(systemName: "clock.arrow.circlepath").font(.system(size: 44)).foregroundStyle(.white.opacity(0.25)); Text("Your battles will appear here").foregroundStyle(.white.opacity(0.55)); Spacer() }
             else {
                 List(profile.profile.battleLog) { record in
-                    HStack { Image(systemName: record.result == "VICTORY" ? "trophy.fill" : "shield.fill").foregroundStyle(record.result == "VICTORY" ? gold : .red); VStack(alignment: .leading) { Text(record.result).font(.headline); Text(record.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("(record.crowns) crowns").font(.caption.bold()) }.listRowBackground(panel)
+                    HStack { Image(systemName: record.result == "VICTORY" ? "trophy.fill" : "shield.fill").foregroundStyle(record.result == "VICTORY" ? gold : .red); VStack(alignment: .leading) { Text(record.result).font(.headline); Text(record.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(record.crowns) crowns").font(.caption.bold()) }.listRowBackground(panel)
                 }.scrollContentBackground(.hidden)
             }
         }
@@ -277,7 +278,7 @@ struct RootView: View {
             HStack {
                 Button { battle?.cancelSelection(); screen = .home } label: { Image(systemName: "xmark").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Leave battle")
                 Spacer()
-                VStack(spacing: 2) { Text(battle?.timeText ?? "3:00").font(.title2.monospacedDigit().bold()); Text("RIVAL  ·  (battle?.redCrowns ?? 0)  —  (battle?.blueCrowns ?? 0)  ·  YOU").font(.system(size: 9, weight: .black)).foregroundStyle(.white.opacity(0.7)) }
+                VStack(spacing: 2) { Text(battle?.timeText ?? "3:00").font(.title2.monospacedDigit().bold()); Text("RIVAL  ·  \(battle?.redCrowns ?? 0)  —  \(battle?.blueCrowns ?? 0)  ·  YOU").font(.system(size: 9, weight: .black)).foregroundStyle(.white.opacity(0.7)) }
                 Spacer()
                 Button { _ = battle?.emote("NICE!") } label: { Image(systemName: "face.smiling").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Send emote")
             }.padding(.horizontal, 12)
@@ -298,10 +299,10 @@ struct RootView: View {
                     ForEach(battle.hand, id: \.self) { id in
                         if let card = CardCatalog.byID[id] {
                             Button { battle.select(id); scene.render(battle) } label: {
-                                VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
+                                VStack(spacing: 4) { CardGlyph(card: card, size: 48); Text\(card.name).font(.system(size: 9, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
                                     .frame(maxWidth: .infinity).frame(height: 88).background(battle.selectedCard == id ? accent.opacity(0.24) : panel, in: RoundedRectangle(cornerRadius: 13))
                                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(battle.selectedCard == id ? accent : .clear, lineWidth: 2))
-                                    .opacity(battle.blueElixir >= Double(card.cost) ? 1 : 0.38)
+                                    .opacity(battle.blueElixir >= Double\(card.cost) ? 1 : 0.38)
                             }.buttonStyle(.plain)
                                 .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("battle"))
                                     .onChanged { value in
@@ -323,7 +324,7 @@ struct RootView: View {
                                         }
                                         scene.render(battle)
                                     })
-                                .disabled(battle.blueElixir < Double(card.cost))
+                                .disabled(battle.blueElixir < Double\(card.cost))
                         }
                     }
                 }.padding(.horizontal, 8)
@@ -367,7 +368,7 @@ struct RootView: View {
 struct MiniCard: View {
     let card: CardDefinition
     var body: some View {
-        VStack(spacing: 4) { CardGlyph(card: card, size: 43); Text(card.name).font(.system(size: 8, weight: .bold)).lineLimit(1); Text("(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
+        VStack(spacing: 4) { CardGlyph(card: card, size: 43); Text\(card.name).font(.system(size: 8, weight: .bold)).lineLimit(1); Text("\(card.cost)").font(.caption2.bold()).foregroundStyle(gold) }
             .frame(maxWidth: .infinity).frame(height: 88).background(panel, in: RoundedRectangle(cornerRadius: 11))
     }
 }
@@ -379,9 +380,9 @@ struct CardGlyph: View {
             RoundedRectangle(cornerRadius: size * 0.24).fill(LinearGradient(colors: palette, startPoint: .topLeading, endPoint: .bottomTrailing))
             Circle().fill(.white.opacity(0.16)).frame(width: size * 0.62).offset(x: size * 0.12, y: -size * 0.12)
             Image(systemName: symbol).font(.system(size: size * 0.40, weight: .black)).foregroundStyle(.white).shadow(color: .black.opacity(0.35), radius: 2, y: 2)
-            VStack { HStack { Text("(card.cost)").font(.system(size: size * 0.22, weight: .black)).foregroundStyle(.white).frame(width: size * 0.28, height: size * 0.28).background(.purple, in: Circle()); Spacer() }; Spacer() }.padding(3)
+            VStack { HStack { Text("\(card.cost)").font(.system(size: size * 0.22, weight: .black)).foregroundStyle(.white).frame(width: size * 0.28, height: size * 0.28).background(.purple, in: Circle()); Spacer() }; Spacer() }.padding(3)
         }.frame(width: size, height: size).overlay(RoundedRectangle(cornerRadius: size * 0.24).stroke(.white.opacity(0.35), lineWidth: 1))
-            .accessibilityLabel("(card.name), (card.cost) elixir")
+            .accessibilityLabel("\(card.name), \(card.cost) elixir")
     }
     private var symbol: String {
         if card.kind == .spell { return "sparkles" }
@@ -400,15 +401,15 @@ struct CardDetailView: View {
     var body: some View {
         ZStack { ink.ignoresSafeArea(); ScrollView { VStack(spacing: 16) {
             CardGlyph(card: card, size: 116).padding(.top, 30)
-            Text(card.name).font(.system(size: 28, weight: .black, design: .rounded))
-            Text("(card.rarity.rawValue.uppercased())  ·  (card.kind.rawValue.uppercased())  ·  (card.cost) ELIXIR").font(.caption.bold()).tracking(1).foregroundStyle(accent)
+            Text\(card.name).font(.system(size: 28, weight: .black, design: .rounded))
+            Text("\(card.rarity.rawValue.uppercased())  ·  \(card.kind.rawValue.uppercased())  ·  \(card.cost) ELIXIR").font(.caption.bold()).tracking(1).foregroundStyle(accent)
             Text(card.description).font(.body).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.72)).padding(.horizontal, 24)
             VStack(spacing: 0) {
-                statRow("Hit points", card.kind == .spell ? "—" : "(Int(card.hp))")
-                statRow("Damage", "(Int(card.damage))")
-                statRow("Damage per second", card.kind == .spell ? "Instant" : "(Int(card.dps))")
+                statRow("Hit points", card.kind == .spell ? "—" : "\(Int(card.hp))")
+                statRow("Damage", "\(Int(card.damage))")
+                statRow("Damage per second", card.kind == .spell ? "Instant" : "\(Int(card.dps))")
                 statRow("Range", String(format: "%.1f tiles", card.range))
-                statRow("Speed", card.speed == 0 ? "Stationary" : "(Int(card.speed * 60)) tiles/min")
+                statRow("Speed", card.speed == 0 ? "Stationary" : "\(Int(card.speed * 60)) tiles/min")
                 statRow("Hit speed", String(format: "%.2f sec", card.hitSpeed))
                 statRow("Targets", card.targetsAir ? "Ground + Air" : "Ground")
                 statRow("Deploy delay", card.kind == .spell ? "Instant" : "1.0 sec")
