@@ -35,15 +35,22 @@ final class ProceduralAudio {
     func play(_ kind: SoundKind, enabled: Bool = true) {
         guard enabled, ready else { return }
         let spec = kind.spec
-        let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
-        let frames = AVAudioFrameCount(22050 * spec.duration)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
-              let channel = buffer.floatChannelData?[0] else { return }
+        guard let format = sfxPlayer.outputFormat(forBus: 0).sampleRate > 0
+            ? AVAudioFormat(standardFormatWithSampleRate: sfxPlayer.outputFormat(forBus: 0).sampleRate,
+                            channels: sfxPlayer.outputFormat(forBus: 0).channelCount)
+            : nil else { return }
+        let sampleRate = format.sampleRate
+        let channels = Int(format.channelCount)
+        let frames = AVAudioFrameCount(sampleRate * spec.duration)
+        guard channels > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let channelData = buffer.floatChannelData else { return }
         buffer.frameLength = frames
         for i in 0..<Int(frames) {
-            let t = Double(i) / 22050
+            let t = Double(i) / sampleRate
             let envelope = min(1, t * 70) * max(0, 1 - t / spec.duration)
-            channel[i] = Float(sin(2 * Double.pi * spec.frequency * t) * envelope * 0.18)
+            let sample = Float(sin(2 * Double.pi * spec.frequency * t) * envelope * 0.18)
+            for channel in 0..<channels { channelData[channel][i] = sample }
         }
         sfxPlayer.scheduleBuffer(buffer)
     }
@@ -60,12 +67,15 @@ final class ProceduralAudio {
         guard key != musicKey else { return }
         musicPlayer.stop()
         musicKey = key
-        let sampleRate = 22050.0
+        let outputFormat = musicPlayer.outputFormat(forBus: 0)
+        let sampleRate = outputFormat.sampleRate
+        let channels = Int(outputFormat.channelCount)
         let seconds = 8.0
         let frames = AVAudioFrameCount(sampleRate * seconds)
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
-              let channel = buffer.floatChannelData?[0] else { return }
+        guard sampleRate > 0, channels > 0,
+              let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: AVAudioChannelCount(channels)),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let channelData = buffer.floatChannelData else { return }
         buffer.frameLength = frames
         let menuNotes = [261.63, 329.63, 392.00, 329.63, 293.66, 349.23, 440.00, 349.23]
         let battleNotes = [196.00, 246.94, 293.66, 246.94, 220.00, 261.63, 329.63, 261.63]
@@ -79,7 +89,8 @@ final class ProceduralAudio {
             let fade = min(1, t * 4) * min(1, (seconds - t) * 4)
             let pulse = 0.62 + 0.38 * sin(2 * Double.pi * (mode == .menu ? 0.5 : 1.0) * t)
             let sample = (sin(2 * Double.pi * base * t) * 0.42 + sin(2 * Double.pi * base * 0.5 * t) * 0.20 + layer + topLayer) * pulse * fade * 0.10
-            channel[i] = Float(sample)
+            let value = Float(sample)
+            for channel in 0..<channels { channelData[channel][i] = value }
         }
         musicPlayer.volume = 0.7
         musicPlayer.scheduleBuffer(buffer, at: nil, options: [.loops])
@@ -90,14 +101,20 @@ final class ProceduralAudio {
         guard enabled, ready else { return }
         let signature = card.name.unicodeScalars.reduce(0) { ($0 * 31 + Int($1.value)) % 480 }
         let frequency = 160.0 + Double(signature)
-        let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
-        let frames = AVAudioFrameCount(22050 * 0.055)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
-              let channel = buffer.floatChannelData?[0] else { return }
+        let outputFormat = sfxPlayer.outputFormat(forBus: 0)
+        let sampleRate = outputFormat.sampleRate
+        let channels = Int(outputFormat.channelCount)
+        let duration = 0.055
+        let frames = AVAudioFrameCount(sampleRate * duration)
+        guard sampleRate > 0, channels > 0,
+              let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: AVAudioChannelCount(channels)),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let channelData = buffer.floatChannelData else { return }
         buffer.frameLength = frames
         for i in 0..<Int(frames) {
-            let t = Double(i) / 22050
-            channel[i] = Float(sin(2 * Double.pi * frequency * t) * min(1, t * 80) * max(0, 1 - t / 0.055) * 0.10)
+            let t = Double(i) / sampleRate
+            let sample = Float(sin(2 * Double.pi * frequency * t) * min(1, t * 80) * max(0, 1 - t / duration) * 0.10)
+            for channel in 0..<channels { channelData[channel][i] = sample }
         }
         sfxPlayer.scheduleBuffer(buffer)
     }
