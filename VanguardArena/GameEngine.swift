@@ -15,6 +15,7 @@ struct BattleEntity: Identifiable, Codable {
     var lifetime = 0.0
     var tower = false
     var king = false
+    var awake = false
     var alive: Bool { hp > 0 }
 }
 struct BattleEvent: Identifiable {
@@ -69,7 +70,7 @@ final class BattleModel: ObservableObject {
     }
     private func addTower(_ team: Team, _ x: Double, _ y: Double, _ king: Bool) {
         entitySequence += 1
-        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: king ? 4200 : 2600, maxHP: king ? 4200 : 2600, tower: true, king: king))
+        entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: team, x: x, y: y, hp: king ? 4200 : 2600, maxHP: king ? 4200 : 2600, tower: true, king: king, awake: !king))
     }
     func select(_ id: String) {
         guard hand.contains(id), let card = CardCatalog.byID[id], card.cost <= Int(floor(blueElixir)) else { return }
@@ -141,6 +142,7 @@ final class BattleModel: ObservableObject {
         aiClock -= Balance.tick
         if aiClock <= 0 { playAI(); aiClock = 1.8 + Double(random() % 260) / 100 }
         moveAndFight(); resolveTowers()
+        if isFinished { return }
         if !overtime && elapsed >= 180 {
             if blueCrowns != redCrowns { finish(blueCrowns > redCrowns ? "VICTORY" : "DEFEAT") }
             else { overtime = true; banner = "SUDDEN DEATH"; bannerClock = 3 }
@@ -163,6 +165,7 @@ final class BattleModel: ObservableObject {
             guard entities[i].alive else { continue }
             if entities[i].deployClock > 0 { entities[i].deployClock = max(0, entities[i].deployClock - Balance.tick); continue }
             if entities[i].tower {
+                if entities[i].king && !entities[i].awake { continue }
                 entities[i].attackClock -= Balance.tick
                 if entities[i].attackClock <= 0, let target = nearestTarget(from: entities[i], range: 5.8) {
                     entities[target].hp -= 100; entities[i].attackClock = 0.9
@@ -206,10 +209,20 @@ final class BattleModel: ObservableObject {
             }
             entities[i].x = min(17.5, max(0.5, entities[i].x)); entities[i].y = min(31.5, max(0.5, entities[i].y))
         }
-        for tower in entities where tower.tower && !tower.king && !tower.alive {
-            if overtime {
-                finish(tower.team == .blue ? "DEFEAT" : "VICTORY")
+        for tower in entities where tower.tower && tower.king && !tower.alive {
+            if tower.team == .blue { redCrowns = 3; finish("DEFEAT") }
+            else { blueCrowns = 3; finish("VICTORY") }
+        }
+        for i in entities.indices where entities[i].tower && entities[i].king && !entities[i].awake {
+            let team = entities[i].team
+            let princessFallen = entities.contains { $0.tower && !$0.king && $0.team == team && !$0.alive }
+            if entities[i].hp < entities[i].maxHP || princessFallen {
+                entities[i].awake = true
+                events.append(BattleEvent(x: entities[i].x, y: entities[i].y, text: "KING AWAKENED", born: elapsed))
             }
+        }
+        for tower in entities where tower.tower && !tower.king && !tower.alive {
+            if overtime { finish(tower.team == .blue ? "DEFEAT" : "VICTORY") }
             if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
             else { blueCrowns = min(3, blueCrowns + 1) }
         }
