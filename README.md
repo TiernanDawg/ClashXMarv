@@ -39,6 +39,27 @@ The CI workflow validates all 91 roster names, runs XcodeGen, builds and archive
 - **Accessibility:** native SwiftUI controls, VoiceOver labels on key controls, team color distinction, reduce-motion, high-contrast and large-text preferences are provided.
 - **Progress safety:** saves use atomic JSON writes, a schema version, validated card IDs and a safe fallback if decoding fails.
 
+
+### Community-grievance review (public forums and player survey)
+
+A review of the 2025 RoyaleAPI player survey and recent r/ClashRoyale discussions found recurring complaints about pay-to-win/over-levelled matchups, opaque or frustrating matchmaking, card balance, progression grind and limited reward choice, bugs/performance, and emote spam. These are recurring themes in sampled discussions, not proof that every player agrees.
+
+Design responses and additional recommended features:
+- **Fair-play queue:** keep battle levels normalized by default and expose both player and bot card levels before the match; never alter bot elixir or secretly change its deck to force a result.
+- **Transparent bot difficulty:** show a difficulty label and a short post-match explanation of the bot's threat response. Keep decisions imperfect and seeded so replays are reproducible.
+- **Practice lab:** add a no-trophy sandbox with selectable starting elixir, target dummies, and repeatable enemy pushes so players can learn counters without losing progress.
+- **Deck diagnostics:** warn about missing air defense, swarm answers, spell coverage, and a clear win condition; explain why each suggested change helps instead of silently changing the deck.
+- **Replay and learning tools:** preserve the battle log and allow replaying a match, then show elixir spent, tower damage, and major positive/negative trades. This directly addresses complaints about difficulty learning and confusing losses.
+- **Progression without walls:** keep chests/rewards earnable offline, show exact timers and costs, and avoid premium-only cards or paid upgrades. A rotating free challenge can encourage trying underused cards without forcing collection completion.
+- **Emote controls:** make mute immediate and persistent, with no gameplay penalty; retain a small cooldown and cap opponent emotes.
+- **Stability over spectacle:** keep effects bounded, make reduced-motion/high-contrast settings easy to find, and run deterministic simulation tests in CI.
+
+Sources reviewed:
+- RoyaleAPI's 2025 player-survey analysis: https://royaleapi.com/blog/player-survey-2025?lang=en
+- Recent community discussion of over-levelled/pay-to-win frustration: https://www.reddit.com/r/ClashRoyale/comments/1p52lld/i_hate_pay_to_win_players_with_all_my_life/
+- Recent community discussion of matchmaking and level gaps: https://www.reddit.com/r/ClashRoyale/comments/1wh9fur/is_the_matchmaking_rigged_on_purpose/
+- High-engagement community thread on emote spam and muting: https://www.reddit.com/r/ClashRoyale/comments/1vtowwu/why_are_everyone_so_toxic_on_every_single_game/
+
 ## Implemented game systems
 
 - **Battle:** deterministic 20 Hz simulation, 3-minute regulation plus 2-minute overtime, correct x1/x2/x3 elixir phase boundaries, card cycling, random starting hand, sleeping/waking King Towers, princess-tower deployment pockets, crowns, sudden death, and remaining-tower-HP tiebreak.

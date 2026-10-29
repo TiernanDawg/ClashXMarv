@@ -142,7 +142,7 @@ struct RootView: View {
                         Text("Earn trophies against tactical AI rivals. No network, ads, or purchases.")
                             .font(.subheadline).foregroundStyle(.white.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
                         Button(action: startBattle) {
-                            HStack { Image(systemName: "swords"); Text("BATTLE"); Spacer(); Image(systemName: "arrow.right") }
+                            HStack { Image(systemName: "bolt.fill"); Text("BATTLE"); Spacer(); Image(systemName: "arrow.right") }
                                 .font(.headline.bold()).padding(.horizontal, 20).frame(height: 56)
                                 .background(LinearGradient(colors: [accent, Color(red: 0.23, green: 0.59, blue: 0.94)], startPoint: .leading, endPoint: .trailing), in: RoundedRectangle(cornerRadius: 16)).foregroundStyle(ink)
                         }.padding(.top, 5)
