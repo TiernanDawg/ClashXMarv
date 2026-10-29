@@ -47,6 +47,10 @@ struct RootView: View {
         .onReceive(timer) { _ in
             guard screen == .battle, let battle, !battle.isFinished else { return }
             battle.tick()
+            scene.showDamageNumbers = profile.profile.settings.damageNumbers
+            scene.reduceMotion = profile.profile.settings.reduceMotion
+            scene.highContrast = profile.profile.settings.highContrast
+            scene.hapticsEnabled = profile.profile.settings.haptics
             scene.render(battle)
             if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
         }
@@ -360,6 +364,10 @@ struct RootView: View {
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         screen = .battle
+        scene.showDamageNumbers = profile.profile.settings.damageNumbers
+        scene.reduceMotion = profile.profile.settings.reduceMotion
+        scene.highContrast = profile.profile.settings.highContrast
+        scene.hapticsEnabled = profile.profile.settings.haptics
         scene.render(model)
     }
     private func header(_ title: String, back: Screen) -> some View {

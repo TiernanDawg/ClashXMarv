@@ -6,6 +6,7 @@ final class ArenaScene: SKScene {
     var showDamageNumbers = true
     var reduceMotion = false
     var highContrast = false
+    var hapticsEnabled = true
     private var entityNodes: [Int: SKNode] = [:]
     private var ghost: SKShapeNode?
     private var gridPreview: SKShapeNode?
@@ -192,7 +193,7 @@ final class ArenaScene: SKScene {
     func updatePlacementGhost(x: Double, y: Double, valid: Bool) {
         let tile = CGPoint(x: floor(x), y: floor(y))
         if tile != lastTile {
-            UISelectionFeedbackGenerator().selectionChanged()
+            if hapticsEnabled { UISelectionFeedbackGenerator().selectionChanged() }
             lastTile = tile
         }
         if ghost == nil {
@@ -234,7 +235,7 @@ final class ArenaScene: SKScene {
         guard let touch = touches.first else { return }
         let (x, y) = boardPoint(touch.location(in: self))
         if valid(y) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if hapticsEnabled { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
             onDrop?(x, y)
         } else {
             battle?.cancelSelection()

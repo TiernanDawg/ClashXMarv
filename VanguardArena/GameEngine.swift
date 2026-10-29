@@ -66,8 +66,9 @@ final class BattleModel: ObservableObject {
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
         self.automatedBlue = automatedBlue
-        self.seed = seed == 0 ? 1 : seed
-        rng = self.seed
+        let normalizedSeed = seed == 0 ? 1 : seed
+        self.seed = normalizedSeed
+        rng = normalizedSeed
         let offset = Int(random() % UInt64(max(1, queue.count)))
         queue = Array(queue[offset...]) + Array(queue[..<offset])
         hand = Array(queue.prefix(4))
