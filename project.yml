@@ -1,0 +1,30 @@
+name: VanguardArena
+options:
+  bundleIdPrefix: com.tiernan.vanguardarena
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    GENERATE_INFOPLIST_FILE: false
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  VanguardArena:
+    type: application
+    platform: iOS
+    sources:
+      - path: VanguardArena
+        excludes:
+          - Info.plist
+    info:
+      path: VanguardArena/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tiernan.vanguardarena
+        PRODUCT_NAME: VanguardArena
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES

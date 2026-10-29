@@ -1,0 +1,65 @@
+name: Vanguard Arena — unsigned iOS IPA
+on:
+  push:
+    branches: [main]
+    paths:
+      - "VanguardArena/**"
+      - "project.yml"
+      - ".github/workflows/build-ipa.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: vanguard-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          swift --version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+      - name: Validate card roster
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("VanguardArena/CardCatalog.swift").read_text()
+          names = ["Torch Tots","Icey Man","Static Bro","Ant Dude Swarm","Spider Dude","Waspies","Green Gobbler","Hobgobbler Pair","Doombot","Cold Colossus","Captain Amerika","Black Window","Starr Lordy","Falcon Flock","Dedpool","Gobbler Gang","Hydra Horde","Hydra Guards","Sentinelle","Mole Dude","Mini Grooty","Invisa-Girl","Frostbyte","Phantom Man","Wolverene","Thorr","Ghost Ryder","Hawk Eyed","Iron Guy","Magnetoe","Cyclopz","Craven Hunter","Moon Knightly","Sabertoothy","Quin-Jet","Shocker Trio","Rhyno Charge","Darkhold Prince","Gamorra","Doc Heals","Black Pantha","Doc Strangely","Scarlet Witchy","Hulkster","Avenger Rookies","Juggernot","Punisha","Ultrawn Drones","Stark Tank","Hogun Squad","Street Rascals","Zemo's Zeppelin","Dr. Doomsday","Elite Rookies","Red Skullz","Giant-Man","Venum","Thanoz","Shield Recruits","Surtoo","Grooty","Three Avengerteers","Furry's Turret","Morbious Crypt","Doombot Tower","Stark Coil","Torch Forge","Stark Mortar","Hydrant Hut","Cyclopz Beam Tower","Hawk X-Bow","Arc Reactor","Avenger Hut","Shrink Zap","Hammer Roll","Avenger Barrel","Icey Snowball","Hawk Volley","Smash Quake","Lokey Clones","Stormy Cyclone","Gobbler Barrel","Hydra Barrel","Human Torchy Fireball","Web Trap","Infinity Snappe","Mysterio Fog","Zombie Graveyard","Stormy Bolt","Rocket Rascal","Mirror Dimension"]
+          missing = [name for name in names if name not in text]
+          assert len(names) == 91 and not missing, f"Roster validation failed: {missing}"
+          print("Roster validated: 91/91 entries")
+          PY
+      - name: Build for iOS
+        run: |
+          set -o pipefail
+          xcodebuild -project VanguardArena.xcodeproj -scheme VanguardArena -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Archive unsigned app
+        run: |
+          set -o pipefail
+          xcodebuild -project VanguardArena.xcodeproj -scheme VanguardArena -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/VanguardArena.xcarchive CODE_SIGNING_ALLOWED=NO archive
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p Payload
+          cp -R build/VanguardArena.xcarchive/Products/Applications/VanguardArena.app Payload/
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent Payload VanguardArena.ipa
+          test -s VanguardArena.ipa
+          unzip -l VanguardArena.ipa | grep -q 'Payload/VanguardArena.app/'
+          shasum -a 256 VanguardArena.ipa
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vanguard-Arena-unsigned-IPA
+          path: VanguardArena.ipa
+          if-no-files-found: error
+          retention-days: 14

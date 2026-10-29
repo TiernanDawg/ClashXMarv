@@ -1,8 +1,0 @@
-node_modules/
-.expo/
-dist/
-build/
-*.ipa
-.env
-.env.*
-!.env.example
