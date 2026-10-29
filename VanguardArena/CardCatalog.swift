@@ -269,15 +269,17 @@ Mirror Dimension|1|spell|Mirror
         else { rarity = .common }
         let unitCount: Int
         if a.contains("fire spirits") { unitCount = 3 }
-        else if a.contains("skeleton army") { unitCount = 6 }
+        else if a.contains("skeleton army") { unitCount = 15 }
         else if a.contains("minion horde") { unitCount = 6 }
-        else if a.contains("goblin gang") { unitCount = 5 }
+        else if a.contains("goblin gang") { unitCount = 6 }
         else if a.contains("royal hogs") { unitCount = 4 }
         else if a.contains("three musketeers") { unitCount = 3 }
-        else if a.contains("barbarians") { unitCount = 4 }
+        else if a.contains("royal recruits") { unitCount = 6 }
+        else if a.contains("barbarians") { unitCount = 5 }
         else if a.contains("rascals") { unitCount = 3 }
-        else if a.contains("spear goblins") { unitCount = 2 }
-        else if a.contains("bats") || a.contains("minions") || a.contains("skeletons") || a.contains("goblins") || a.contains("zappies") || a.contains("guards") { unitCount = 3 }
+        else if a.contains("spear goblins") { unitCount = 3 }
+        else if a.contains("bats") { unitCount = 5 }
+        else if a.contains("minions") || a.contains("skeletons") || a.contains("goblins") || a.contains("zappies") || a.contains("guards") { unitCount = 3 }
         else { unitCount = 1 }
         let fallbackHP = kind == .spell ? 0 : (kind == .building ? 850 + Double(cost) * 125 : 190 + Double(cost) * 155) * (unitCount > 1 ? 0.58 : 1)
         let fallbackDamage = kind == .spell ? 150 + Double(cost) * 78 : 34 + Double(cost) * 31
