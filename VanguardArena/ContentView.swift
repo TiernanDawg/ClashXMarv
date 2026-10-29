@@ -570,7 +570,7 @@ struct RootView: View {
         lastResultSaved = true
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
-        scene.battle = model
+        scene.battleHolder.model = model
         scene.onDrop = { x, y in
             let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
             if deployed {
@@ -590,10 +590,10 @@ struct RootView: View {
     }
     private func startBattle() {
         let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies)
-        battle = model; lastResultSaved = false
+        battleHolder.model = model; lastResultSaved = false
         scene = ArenaScene(size: CGSize(width: 360, height: 640))
         scene.themeIndex = min(12, max(0, profile.profile.trophies / 300))
-        scene.battle = model
+        scene.battleHolder.model = model
         scene.scaleMode = .resizeFill
         scene.onDrop = { x, y in
             let deployed = model.isValidPlacement(x: x, y: y) && model.deploySelected(x: x, y: y)
