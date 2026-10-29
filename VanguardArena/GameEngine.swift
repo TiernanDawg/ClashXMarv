@@ -41,8 +41,13 @@ final class BattleModel: ObservableObject {
     @Published private(set) var nextCard = ""
     @Published private(set) var selectedCard: String?
     @Published private(set) var events: [BattleEvent] = []
+    @Published private(set) var actions: [BattleAction] = []
     @Published private(set) var seed: UInt64
     private var queue: [String]
+    private let originalDeck: [String]
+    private let replayActions: [BattleAction]
+    private let isReplaying: Bool
+    private var replayIndex = 0
     private var redQueue: [String] = []
     private var redHand: [String] = []
     private var entitySequence = 0
@@ -61,10 +66,13 @@ final class BattleModel: ObservableObject {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
         return String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)
     }
-    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false) {
+    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false) {
         let valid = deck.filter { CardCatalog.byID[$0] != nil }
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
+        originalDeck = chosen
+        self.replayActions = replayActions.sorted { $0.time < $1.time }
+        self.isReplaying = isReplaying
         self.automatedBlue = automatedBlue
         let normalizedSeed = seed == 0 ? 1 : seed
         self.seed = normalizedSeed
@@ -108,6 +116,7 @@ final class BattleModel: ObservableObject {
         if team == .blue {
             guard hand.contains(id), blueElixir >= Double(card.cost), card.kind == .spell || canDeploy(team: .blue, x: xx, y: yy) else { return false }
             blueElixir -= Double(card.cost); cycle(id); selectedCard = nil
+            if !automatedBlue && !isReplaying { actions.append(BattleAction(time: elapsed, cardID: id, x: xx, y: yy)) }
         } else {
             guard redElixir >= Double(card.cost), redHand.contains(id), card.kind == .spell || canDeploy(team: .red, x: xx, y: yy) else { return false }
             redElixir -= Double(card.cost)
@@ -166,6 +175,13 @@ final class BattleModel: ObservableObject {
     func tick() {
         guard !isFinished else { return }
         elapsed += Balance.tick
+        if isReplaying {
+            while replayIndex < replayActions.count && replayActions[replayIndex].time <= elapsed {
+                let action = replayActions[replayIndex]
+                replayIndex += 1
+                if hand.contains(action.cardID) { _ = deploy(id: action.cardID, x: action.x, y: action.y, team: .blue) }
+            }
+        }
         energyClock += Balance.tick
         bannerClock = max(0, bannerClock - Balance.tick)
         events.removeAll { elapsed - $0.born > 1.4 }
@@ -371,8 +387,34 @@ final class BattleModel: ObservableObject {
             else if result == "DEFEAT" { p.losses += 1; p.trophies = max(0, p.trophies - 18); p.gold += 15; p.xp += 10 }
             p.kingLevel = min(50, 1 + p.xp / 100)
             p.dailyCrowns = min(10, p.dailyCrowns + blueCrowns)
-            p.battleLog.insert(BattleRecord(result: result, crowns: blueCrowns, opponent: "Arena Rival", seed: seed), at: 0)
+            p.battleLog.insert(BattleRecord(result: result, crowns: blueCrowns, opponent: "Arena Rival", seed: seed, deck: originalDeck, actions: actions), at: 0)
             p.battleLog = Array(p.battleLog.prefix(30))
+            var meta = p.meta ?? MetaProgression()
+            if !Calendar.current.isDateInToday(meta.dailyDate) {
+                meta.dailyDate = Date()
+                meta.dailyQuests = MetaProgression().dailyQuests
+            }
+            for i in meta.dailyQuests.indices {
+                switch meta.dailyQuests[i].id {
+                case "win-one": if result == "VICTORY" { meta.dailyQuests[i].progress = min(meta.dailyQuests[i].target, meta.dailyQuests[i].progress + 1) }
+                case "play-three": meta.dailyQuests[i].progress = min(meta.dailyQuests[i].target, meta.dailyQuests[i].progress + 1)
+                case "earn-crowns": meta.dailyQuests[i].progress = min(meta.dailyQuests[i].target, meta.dailyQuests[i].progress + blueCrowns)
+                default: break
+                }
+            }
+            meta.seasonXP += result == "VICTORY" ? 30 : 10
+            if result == "VICTORY" && meta.chestSlots.count < 4 {
+                let roll = Int(seed % 100)
+                let kind: (String, TimeInterval, Int, Int, Int)
+                if roll < 52 { kind = ("Silver", 30 * 60, 70, 0, 8) }
+                else if roll < 78 { kind = ("Gold", 2 * 3600, 160, 1, 16) }
+                else if roll < 91 { kind = ("Giant", 4 * 3600, 350, 2, 28) }
+                else if roll < 97 { kind = ("Magical", 6 * 3600, 500, 4, 40) }
+                else if roll < 99 { kind = ("Super Magical", 8 * 3600, 700, 6, 55) }
+                else { kind = ("Legendary", 12 * 3600, 900, 10, 65) }
+                meta.chestSlots.append(ChestSlot(type: kind.0, startedAt: Date(), duration: kind.1, gold: kind.2, gems: kind.3, copies: kind.4))
+            }
+            p.meta = meta
         }
     }
 }

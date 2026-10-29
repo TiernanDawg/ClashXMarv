@@ -2,7 +2,7 @@ import SwiftUI
 import SpriteKit
 import UIKit
 
-private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log }
+private enum Screen: Equatable { case home, deck, cards, ladder, profile, settings, battle, shop, log, tutorial }
 private let ink = Color(red: 0.035, green: 0.055, blue: 0.10)
 private let panel = Color(red: 0.075, green: 0.105, blue: 0.17)
 private let accent = Color(red: 0.39, green: 0.79, blue: 0.98)
@@ -17,6 +17,7 @@ struct RootView: View {
     @State private var lastResultSaved = false
     @State private var arenaRect: CGRect = .zero
     @State private var draggingCardID: String?
+    @State private var tutorialStep = 0
     @State private var toast = ""
     private let timer = Timer.publish(every: Balance.tick, on: .main, in: .common).autoconnect()
 
@@ -33,6 +34,7 @@ struct RootView: View {
             case .battle: battleView
             case .shop: shop
             case .log: battleLog
+            case .tutorial: tutorial
             }
         }
         .foregroundStyle(.white)
@@ -44,9 +46,13 @@ struct RootView: View {
                     .background(.ultraThinMaterial, in: Capsule()).padding(.top, 8).transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .onAppear { updateMusic(); if profile.profile.meta?.tutorialCompleted != true { screen = .tutorial } }
+        .onChange(of: screen) { _ in updateMusic() }
+        .onChange(of: profile.profile.settings.music) { _ in updateMusic() }
         .onReceive(timer) { _ in
             guard screen == .battle, let battle, !battle.isFinished else { return }
             battle.tick()
+            updateMusic()
             scene.showDamageNumbers = profile.profile.settings.damageNumbers
             scene.reduceMotion = profile.profile.settings.reduceMotion
             scene.highContrast = profile.profile.settings.highContrast
@@ -54,6 +60,31 @@ struct RootView: View {
             scene.render(battle)
             if battle.isFinished && !lastResultSaved { battle.saveRecord(profile: profile); lastResultSaved = true }
         }
+    }
+
+    private var tutorial: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack { Text("TRAINING CAMP").font(.caption.bold()).tracking(2).foregroundStyle(accent); Spacer(); Button("SKIP") { finishTutorial() }.font(.caption.bold()).foregroundStyle(.white.opacity(0.65)) }
+            Spacer()
+            Image(systemName: ["hand.draw.fill", "drop.fill", "arrow.left.arrow.right", "trophy.fill"][min(3, tutorialStep)]).font(.system(size: 76)).foregroundStyle(accent).frame(maxWidth: .infinity)
+            Text(["Deploy with precision", "Manage your elixir", "Control both lanes", "Win crowns"][min(3, tutorialStep)]).font(.system(size: 30, weight: .black, design: .rounded))
+            Text([
+                "Tap a card, then tap a valid tile on your side. You can also drag the card from your hand and release over the arena. Red tiles are invalid; cancelling spends no elixir.",
+                "Cards cost elixir. It regenerates over time, reaches a cap of ten, and speeds up in double and triple elixir. Avoid spending your whole bar without a plan.",
+                "Ground units cross the river at the two bridges. Air units can fly over it. Defend your towers, then counter-push when the rival spends too much.",
+                "Destroy a Princess Tower for a crown. Destroy the King Tower for an instant three-crown win. A tied match enters sudden-death overtime."
+            ][min(3, tutorialStep)]).font(.body).foregroundStyle(.white.opacity(0.72)).fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            HStack { Text("\(tutorialStep + 1) OF 4").font(.caption.bold()).foregroundStyle(.white.opacity(0.5)); Spacer(); Button(tutorialStep == 3 ? "START PLAYING" : "NEXT") { if tutorialStep == 3 { finishTutorial() } else { withAnimation(.easeOut(duration: 0.2)) { tutorialStep += 1 } } }.buttonStyle(PrimaryButtonStyle()).frame(maxWidth: 190) }
+        }.padding(24)
+    }
+    private func finishTutorial() {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            meta.tutorialCompleted = true
+            p.meta = meta
+        }
+        screen = .home
     }
 
     private var home: some View {
@@ -100,6 +131,10 @@ struct RootView: View {
                         navTile("Collection", "rectangle.stack.fill", .cards)
                         navTile("Trophy Road", "map.fill", .ladder)
                         navTile("Profile", "person.crop.circle.fill", .profile)
+                    }
+                    HStack(spacing: 12) {
+                        navTile("Daily Supply", "gift.fill", .shop)
+                        navTile("Battle Log", "clock.arrow.circlepath", .log)
                     }
                 }
                 HStack(spacing: 12) {
@@ -235,7 +270,8 @@ struct RootView: View {
                     settingToggle("Large text", keyPath: \.largeText)
                 }
                 Section("Progress") {
-                    Button("Claim free chest", action: claimChest)
+                    Button("Open Daily Supply") { screen = .shop }
+                    Button("Claim free chest", action: claimFreeChest)
                     Button("Reset all progress", role: .destructive) { profile.reset(); toast = "Progress reset" }
                 }
             }.scrollContentBackground(.hidden)
@@ -244,22 +280,113 @@ struct RootView: View {
     private func settingToggle(_ title: String, keyPath: WritableKeyPath<GameSettings, Bool>) -> some View {
         Toggle(title, isOn: Binding(get: { profile.profile.settings[keyPath: keyPath] }, set: { value in profile.update { $0.settings[keyPath: keyPath] = value } }))
     }
-    private func claimChest() {
+    private func claimFreeChest() {
         let now = Date()
         guard now.timeIntervalSince(profile.profile.lastFreeChest) >= 4 * 3600 else { toast = "Free chest is still on cooldown"; return }
         profile.update { $0.lastFreeChest = now; $0.gold += 150; $0.gems += 3 }
         toast = "Chest opened · +150 gold · +3 gems"
     }
     private var shop: some View {
-        VStack(spacing: 16) {
-            header("Daily Supply", back: .home)
-            Text("A gold-only shop. No purchases, ads, or premium-only cards.").font(.subheadline).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 20)
-            ForEach(Array(CardCatalog.all.prefix(6))) { card in
-                HStack { CardGlyph(card: card, size: 52); VStack(alignment: .leading) { Text(card.name).font(.headline); Text("Card copies · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
-                    .padding(12).background(panel, in: RoundedRectangle(cornerRadius: 15)).padding(.horizontal, 16)
-            }
-            Spacer()
+        ScrollView {
+            VStack(spacing: 14) {
+                header("Daily Supply", back: .home)
+                HStack { Label("\(profile.profile.gold) gold", systemImage: "circle.hexagongrid.fill").foregroundStyle(gold); Spacer(); Label("\(profile.profile.gems) gems", systemImage: "diamond.fill").foregroundStyle(accent) }.font(.subheadline.bold()).padding(.horizontal, 18)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("CHEST SLOTS").font(.headline.bold()).tracking(1)
+                    ForEach(0..<4, id: \.self) { slot in
+                        if let chest = (profile.profile.meta?.chestSlots ?? []).indices.contains(slot) ? profile.profile.meta?.chestSlots[slot] : nil {
+                            HStack(spacing: 12) {
+                                Image(systemName: "shippingbox.fill").font(.title2).foregroundStyle(chest.isReady ? gold : accent).frame(width: 42, height: 42).background(panel, in: RoundedRectangle(cornerRadius: 12))
+                                VStack(alignment: .leading, spacing: 3) { Text("\(chest.type) Chest").font(.subheadline.bold()); Text(chest.isReady ? "Ready to open" : "Unlocks in \(eta(chest.remaining))").font(.caption).foregroundStyle(.white.opacity(0.58)) }
+                                Spacer()
+                                if chest.isReady { Button("OPEN") { claimChestSlot(chest.id) }.font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 9).background(gold, in: Capsule()).foregroundStyle(ink) }
+                            }.padding(11).background(panel, in: RoundedRectangle(cornerRadius: 15))
+                        } else {
+                            HStack { Image(systemName: "lock.open").foregroundStyle(.white.opacity(0.35)); Text("Empty slot · win a battle to earn a chest").font(.caption).foregroundStyle(.white.opacity(0.55)); Spacer() }.padding(13).background(panel.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
+                        }
+                    }
+                }.padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack { Text("DAILY QUESTS").font(.headline.bold()).tracking(1); Spacer(); Text("Resets daily").font(.caption).foregroundStyle(.white.opacity(0.5)) }
+                    ForEach(profile.profile.meta?.dailyQuests ?? []) { quest in
+                        HStack(spacing: 10) {
+                            Image(systemName: quest.claimed ? "checkmark.circle.fill" : "target").foregroundStyle(quest.claimed ? .green : accent).font(.title3)
+                            VStack(alignment: .leading, spacing: 3) { Text(quest.title).font(.subheadline.bold()); Text("\(min(quest.progress, quest.target))/\(quest.target) · +\(quest.rewardGold) gold, +\(quest.rewardXP) XP").font(.caption).foregroundStyle(.white.opacity(0.55)) }
+                            Spacer()
+                            if quest.progress >= quest.target && !quest.claimed { Button("CLAIM") { claimQuest(quest.id) }.font(.caption.bold()).padding(9).background(accent, in: Capsule()).foregroundStyle(ink) }
+                            else if quest.claimed { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green) }
+                        }.padding(11).background(panel, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }.padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack { Text("FREE SEASON TRACK").font(.headline.bold()).tracking(1); Spacer(); Text("\(profile.profile.meta?.seasonXP ?? 0) XP").font(.caption.bold()).foregroundStyle(gold) }
+                    Text("Monthly rewards. No premium track or purchases.").font(.caption).foregroundStyle(.white.opacity(0.55))
+                    ForEach(0..<10, id: \.self) { tier in
+                        let required = (tier + 1) * 100
+                        let claimed = profile.profile.meta?.claimedSeasonTiers.contains(tier) ?? false
+                        HStack {
+                            ZStack { Circle().fill(gold.opacity(0.18)).frame(width: 36, height: 36); Text("\(tier + 1)").font(.caption.bold()).foregroundStyle(gold) }
+                            VStack(alignment: .leading, spacing: 2) { Text("Reward tier \(tier + 1)").font(.subheadline.bold()); Text("\(required) season XP · \(150 + tier * 50) gold").font(.caption).foregroundStyle(.white.opacity(0.55)) }
+                            Spacer()
+                            if claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
+                            else if (profile.profile.meta?.seasonXP ?? 0) >= required { Button("CLAIM") { claimSeasonTier(tier) }.font(.caption.bold()).padding(9).background(gold, in: Capsule()).foregroundStyle(ink) }
+                            else { Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.25)) }
+                        }.padding(10).background(panel, in: RoundedRectangle(cornerRadius: 13))
+                    }
+                }.padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("CARD SHOP").font(.headline.bold()).tracking(1)
+                    Text("Gold-only offers. Every card can be earned through play.").font(.caption).foregroundStyle(.white.opacity(0.55))
+                    ForEach(Array(CardCatalog.all.prefix(6))) { card in
+                        HStack { CardGlyph(card: card, size: 48); VStack(alignment: .leading) { Text(card.name).font(.subheadline.bold()); Text("Upgrade or unlock · \(card.rarity.rawValue)").font(.caption).foregroundStyle(.white.opacity(0.55)) }; Spacer(); Button("100 gold") { buyCard(card) }.font(.caption.bold()).padding(10).background(accent.opacity(0.2), in: Capsule()) }
+                            .padding(10).background(panel, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }.padding(.horizontal, 16)
+            }.padding(.bottom, 20)
         }
+    }
+    private func eta(_ interval: TimeInterval) -> String {
+        let seconds = max(0, Int(interval))
+        return String(format: "%d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+    }
+    private func claimChestSlot(_ id: UUID) {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            guard let index = meta.chestSlots.firstIndex(where: { $0.id == id }), meta.chestSlots[index].isReady else { p.meta = meta; return }
+            let chest = meta.chestSlots.remove(at: index)
+            p.gold += chest.gold
+            p.gems += chest.gems
+            for n in 0..<chest.copies {
+                let card = CardCatalog.all[(p.crowns + n + p.wins) % CardCatalog.all.count]
+                if !p.unlocked.contains(card.id) { p.unlocked.append(card.id) }
+                else { p.levels[card.id, default: 1] = min(13, p.levels[card.id, default: 1] + 1) }
+            }
+            p.meta = meta
+        }
+        toast = "Chest rewards claimed"
+    }
+    private func claimQuest(_ id: String) {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            guard let index = meta.dailyQuests.firstIndex(where: { $0.id == id }), !meta.dailyQuests[index].claimed, meta.dailyQuests[index].progress >= meta.dailyQuests[index].target else { p.meta = meta; return }
+            meta.dailyQuests[index].claimed = true
+            p.gold += meta.dailyQuests[index].rewardGold
+            p.xp += meta.dailyQuests[index].rewardXP
+            p.kingLevel = min(50, 1 + p.xp / 100)
+            p.meta = meta
+        }
+        toast = "Quest reward claimed"
+    }
+    private func claimSeasonTier(_ tier: Int) {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            guard tier >= 0 && tier < 10 && meta.seasonXP >= (tier + 1) * 100 && !meta.claimedSeasonTiers.contains(tier) else { p.meta = meta; return }
+            meta.claimedSeasonTiers.append(tier)
+            p.gold += 150 + tier * 50
+            if (tier + 1) % 5 == 0 { p.gems += 2 }
+            p.meta = meta
+        }
+        toast = "Season reward claimed"
     }
     private func buyCard(_ card: CardDefinition) {
         guard profile.profile.gold >= 100 else { toast = "Not enough gold"; return }
@@ -272,7 +399,9 @@ struct RootView: View {
             if profile.profile.battleLog.isEmpty { Spacer(); Image(systemName: "clock.arrow.circlepath").font(.system(size: 44)).foregroundStyle(.white.opacity(0.25)); Text("Your battles will appear here").foregroundStyle(.white.opacity(0.55)); Spacer() }
             else {
                 List(profile.profile.battleLog) { record in
-                    HStack { Image(systemName: record.result == "VICTORY" ? "trophy.fill" : "shield.fill").foregroundStyle(record.result == "VICTORY" ? gold : .red); VStack(alignment: .leading) { Text(record.result).font(.headline); Text(record.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(record.crowns) crowns").font(.caption.bold()) }.listRowBackground(panel)
+                    Button { startReplay(record) } label: {
+                        HStack { Image(systemName: record.result == "VICTORY" ? "trophy.fill" : "shield.fill").foregroundStyle(record.result == "VICTORY" ? gold : .red); VStack(alignment: .leading) { Text(record.result).font(.headline); Text(record.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }; Spacer(); VStack(alignment: .trailing) { Text("\(record.crowns) crowns").font(.caption.bold()); Text(record.actions == nil ? "No replay data" : "Tap to replay").font(.caption2).foregroundStyle(.secondary) } }
+                    }.disabled(record.actions == nil).listRowBackground(panel)
                 }.scrollContentBackground(.hidden)
             }
         }
@@ -353,6 +482,26 @@ struct RootView: View {
                 }
             }
         }.padding(.top, 4).coordinateSpace(name: "battle")
+    }
+    private func updateMusic() {
+        let phase = (battle?.elapsed ?? 0) >= 240 ? 3 : ((battle?.elapsed ?? 0) >= 120 ? 2 : 1)
+        ProceduralAudio.shared.setMusic(mode: screen == .battle ? .battle : .menu, phase: phase, enabled: profile.profile.settings.music)
+    }
+    private func startReplay(_ record: BattleRecord) {
+        let model = BattleModel(deck: record.deck ?? profile.profile.selectedDeck, seed: record.seed, replayActions: record.actions ?? [], isReplaying: true)
+        battle = model
+        lastResultSaved = true
+        scene = ArenaScene(size: CGSize(width: 360, height: 640))
+        scene.battle = model
+        scene.onDrop = { x, y in _ = model.deploySelected(x: x, y: y); scene.render(model) }
+        scene.scaleMode = .resizeFill
+        scene.backgroundColor = .clear
+        scene.showDamageNumbers = profile.profile.settings.damageNumbers
+        scene.reduceMotion = profile.profile.settings.reduceMotion
+        scene.highContrast = profile.profile.settings.highContrast
+        scene.hapticsEnabled = profile.profile.settings.haptics
+        screen = .battle
+        scene.render(model)
     }
     private func startBattle() {
         let model = BattleModel(deck: profile.profile.selectedDeck)
