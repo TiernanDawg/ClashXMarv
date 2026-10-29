@@ -261,6 +261,7 @@ Mirror Dimension|1|spell|Mirror
         if a.contains("mirror") { b.insert(.mirror) }
         if a.contains("collector") || a.contains("pump") || a.contains("arc reactor") { b.insert(.elixirPump) }
         if ["poison","graveyard","earthquake","furnace","hut","crypt"].contains(where: { a.contains($0) }) { b.insert(.areaOverTime) }
+        if kind == .troop && !b.contains(.ranged) && !b.contains(.splash) && !b.contains(.flying) { b.insert(.melee) }
         let rarity: CardRarity
         if ["bandit","miner","princess","royal ghost","inferno dragon","night witch","magic archer","electro wizard","the log","lava hound","mega knight"].contains(where: { a.contains($0) }) { rarity = .legendary }
         else if cost >= 7 || ["three musketeers","sparky","golem","p.e.k.k.a","mirror","rocket","lightning","witch","baby dragon","executioner"].contains(where: { a.contains($0) }) { rarity = .epic }
