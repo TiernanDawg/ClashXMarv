@@ -269,6 +269,16 @@ final class ArenaScene: SKScene {
         body.lineWidth = 1.2
         if !reduceMotion && !thermalLimited { body.run(.repeatForever(.sequence([.scale(to: 1.035, duration: 0.38), .scale(to: 1.0, duration: 0.38)])), withKey: "idle-breathe") }
         root.addChild(body)
+        if let card = definition {
+            let accent = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.62)
+            accent.fillColor = .clear
+            accent.strokeColor = card.behavior.contains(.flying) ? .systemCyan : (card.behavior.contains(.splash) ? .systemOrange : (card.behavior.contains(.rampBeam) ? .systemPurple : (card.behavior.contains(.shield) ? .systemTeal : .white.withAlphaComponent(0.35))))
+            accent.lineWidth = card.behavior.contains(.rampBeam) || card.behavior.contains(.shield) ? 2 : 1
+            accent.alpha = 0.8
+            root.addChild(accent)
+            if !reduceMotion && !thermalLimited && card.behavior.contains(.flying) { accent.run(.repeatForever(.rotate(byAngle: CGFloat.pi * 2, duration: 3.5))) }
+            if !reduceMotion && !thermalLimited && card.behavior.contains(.rampBeam) { accent.run(.repeatForever(.sequence([.fadeAlpha(to: 0.35, duration: 0.35), .fadeAlpha(to: 0.95, duration: 0.35)]))) }
+        }
 
         let label = SKLabelNode(text: entity.king ? "♛" : (entity.tower ? "◆" : String(CardCatalog.byID[entity.cardID]?.name.prefix(2).uppercased() ?? "•")))
         let markerPath = CGMutablePath()
