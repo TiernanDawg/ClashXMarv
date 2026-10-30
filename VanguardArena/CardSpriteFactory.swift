@@ -69,6 +69,128 @@ enum CardSpriteFactory {
             shadow.alpha = 0.7
         }
 
+        if card.kind == .spell {
+            if analog.contains("zap") || analog.contains("lightning") {
+                shape([CGPoint(x:-w*0.02,y:h*0.48),CGPoint(x:-w*0.30,y:h*0.02),CGPoint(x:-w*0.06,y:h*0.02),
+                       CGPoint(x:-w*0.18,y:-h*0.46),CGPoint(x:w*0.30,y:h*0.08),CGPoint(x:w*0.06,y:h*0.08)], .systemYellow, outline, 2.5)
+            } else if analog.contains("barrel") || analog.contains("log") {
+                rect(CGRect(x:-w*0.30,y:-h*0.30,width:w*0.60,height:h*0.60), w*0.12,
+                     UIColor(red:0.48,green:0.27,blue:0.12,alpha:1), outline, 2.3)
+                for row in [-0.18,0.02,0.22] {
+                    rect(CGRect(x:-w*0.32,y:CGFloat(row)*h,width:w*0.64,height:h*0.045), w*0.02, .systemYellow, outline, 1.2)
+                }
+                if analog.contains("goblin") || analog.contains("skeleton") {
+                    shape([CGPoint(x:-w*0.24,y:h*0.20),CGPoint(x:-w*0.48,y:h*0.42),CGPoint(x:-w*0.16,y:h*0.36)], trim, outline, 1.5)
+                    shape([CGPoint(x:w*0.24,y:h*0.20),CGPoint(x:w*0.48,y:h*0.42),CGPoint(x:w*0.16,y:h*0.36)], trim, outline, 1.5)
+                }
+            } else if analog.contains("snow") || analog.contains("freeze") {
+                shape([CGPoint(x:0,y:h*0.48),CGPoint(x:w*0.22,y:h*0.18),CGPoint(x:w*0.44,y:0),
+                       CGPoint(x:w*0.22,y:-h*0.18),CGPoint(x:0,y:-h*0.48),CGPoint(x:-w*0.22,y:-h*0.18),
+                       CGPoint(x:-w*0.44,y:0),CGPoint(x:-w*0.22,y:h*0.18)], .systemCyan, outline, 2.2)
+                for angle in [CGFloat(0),CGFloat.pi/3,CGFloat.pi*2/3] {
+                    let ray = SKShapeNode()
+                    let path = CGMutablePath(); path.move(to: CGPoint(x:-cos(angle)*w*0.28,y:-sin(angle)*h*0.28))
+                    path.addLine(to: CGPoint(x:cos(angle)*w*0.28,y:sin(angle)*h*0.28))
+                    ray.path = path; ray.strokeColor = .white; ray.lineWidth = 1.6; root.addChild(ray)
+                }
+            } else if analog.contains("arrow") || analog.contains("volley") {
+                for index in 0..<3 {
+                    let x = CGFloat(index-1)*w*0.22
+                    shape([CGPoint(x:x,y:h*0.40),CGPoint(x:x-w*0.09,y:h*0.15),CGPoint(x:x-w*0.035,y:h*0.18),
+                           CGPoint(x:x-w*0.035,y:-h*0.36),CGPoint(x:x+w*0.035,y:-h*0.36),
+                           CGPoint(x:x+w*0.035,y:h*0.18),CGPoint(x:x+w*0.09,y:h*0.15)], .lightGray, outline, 1.4)
+                }
+            } else if analog.contains("tornado") || analog.contains("cyclone") {
+                for index in 0..<4 {
+                    let swirl = SKShapeNode(); let path = CGMutablePath()
+                    let width = w * (0.45 - CGFloat(index)*0.07)
+                    path.move(to: CGPoint(x:-width,y:-h*0.30+CGFloat(index)*h*0.16))
+                    path.addQuadCurve(to: CGPoint(x:width,y:-h*0.30+CGFloat(index)*h*0.16),
+                                      control: CGPoint(x:0,y:h*0.42-CGFloat(index)*h*0.08))
+                    swirl.path = path; swirl.strokeColor = index.isMultiple(of:2) ? .white : .systemCyan
+                    swirl.lineWidth = 2.1; root.addChild(swirl)
+                }
+            } else if analog.contains("earthquake") || analog.contains("quake") {
+                shape([CGPoint(x:-w*0.48,y:-h*0.20),CGPoint(x:-w*0.25,y:-h*0.02),CGPoint(x:-w*0.12,y:-h*0.30),
+                       CGPoint(x:w*0.02,y:h*0.10),CGPoint(x:w*0.19,y:-h*0.12),CGPoint(x:w*0.42,y:h*0.28)], .systemOrange, outline, 2.4)
+            } else if analog.contains("fireball") || analog.contains("fire") {
+                shape([CGPoint(x:0,y:-h*0.45),CGPoint(x:-w*0.38,y:-h*0.04),CGPoint(x:-w*0.30,y:h*0.26),
+                       CGPoint(x:0,y:h*0.48),CGPoint(x:w*0.30,y:h*0.24),CGPoint(x:w*0.40,y:-h*0.08)], .systemOrange, outline, 2.4)
+                shape([CGPoint(x:0,y:-h*0.24),CGPoint(x:-w*0.16,y:0),CGPoint(x:0,y:h*0.30),CGPoint(x:w*0.18,y:0)], .systemYellow, outline, 1.5)
+            } else if analog.contains("rage") || analog.contains("poison") {
+                rect(CGRect(x:-w*0.22,y:-h*0.30,width:w*0.44,height:h*0.52), w*0.08,
+                     analog.contains("rage") ? .systemPurple : .systemGreen, outline, 2.2)
+                rect(CGRect(x:-w*0.11,y:h*0.20,width:w*0.22,height:h*0.14), w*0.03, trim, outline, 1.5)
+                ellipse(CGRect(x:-w*0.10,y:-h*0.08,width:w*0.20,height:h*0.20), .white.withAlphaComponent(0.65), outline, 1)
+            } else if analog.contains("graveyard") {
+                shape([CGPoint(x:-w*0.32,y:-h*0.40),CGPoint(x:-w*0.32,y:h*0.10),CGPoint(x:-w*0.20,y:h*0.35),
+                       CGPoint(x:w*0.20,y:h*0.35),CGPoint(x:w*0.32,y:h*0.10),CGPoint(x:w*0.32,y:-h*0.40)], .darkGray, outline, 2.4)
+                for side in [-1.0,1.0] {
+                    shape([CGPoint(x:CGFloat(side)*w*0.12,y:-h*0.32),CGPoint(x:CGFloat(side)*w*0.28,y:-h*0.08),
+                           CGPoint(x:CGFloat(side)*w*0.18,y:h*0.04)], UIColor(white:0.90,alpha:1), outline, 1.5)
+                }
+            } else if analog.contains("rocket") {
+                shape([CGPoint(x:0,y:h*0.48),CGPoint(x:-w*0.22,y:h*0.10),CGPoint(x:-w*0.18,y:-h*0.25),
+                       CGPoint(x:w*0.18,y:-h*0.25),CGPoint(x:w*0.22,y:h*0.10)], .lightGray, outline, 2.4)
+                shape([CGPoint(x:-w*0.18,y:-h*0.14),CGPoint(x:-w*0.42,y:-h*0.42),CGPoint(x:-w*0.13,y:-h*0.32)], .systemRed, outline, 1.5)
+                shape([CGPoint(x:w*0.18,y:-h*0.14),CGPoint(x:w*0.42,y:-h*0.42),CGPoint(x:w*0.13,y:-h*0.32)], .systemRed, outline, 1.5)
+            } else {
+                shape([CGPoint(x:0,y:h*0.48),CGPoint(x:w*0.36,y:h*0.08),CGPoint(x:w*0.18,y:-h*0.42),
+                       CGPoint(x:-w*0.18,y:-h*0.42),CGPoint(x:-w*0.36,y:h*0.08)], trim, outline, 2.4)
+                ellipse(CGRect(x:-w*0.10,y:-h*0.08,width:w*0.20,height:h*0.20), .systemCyan, .white, 1.2)
+            }
+            return root
+        }
+
+        if card.kind == .building {
+            let base = CGRect(x:-w*0.34,y:-h*0.34,width:w*0.68,height:h*0.62)
+            switch index % 11 {
+            case 0:
+                rect(base,w*0.10,trim,outline,2.4)
+                ellipse(CGRect(x:-w*0.40,y:-h*0.36,width:w*0.22,height:h*0.22),.darkGray,outline,1.8)
+                ellipse(CGRect(x:w*0.18,y:-h*0.36,width:w*0.22,height:h*0.22),.darkGray,outline,1.8)
+                rect(CGRect(x:-w*0.05,y:h*0.02,width:w*0.48,height:h*0.16),w*0.07,.darkGray,outline,2.2).zRotation = 0.35
+            case 1:
+                shape([CGPoint(x:-w*0.34,y:-h*0.34),CGPoint(x:-w*0.34,y:h*0.10),CGPoint(x:-w*0.20,y:h*0.34),
+                       CGPoint(x:w*0.20,y:h*0.34),CGPoint(x:w*0.34,y:h*0.10),CGPoint(x:w*0.34,y:-h*0.34)],trim,outline,2.4)
+                ellipse(CGRect(x:-w*0.10,y:-h*0.02,width:w*0.20,height:h*0.20),.white,outline,1.4)
+            case 2:
+                rect(base,w*0.08,.darkGray,outline,2.4)
+                shape([CGPoint(x:-w*0.40,y:h*0.18),CGPoint(x:-w*0.25,y:h*0.43),CGPoint(x:w*0.25,y:h*0.43),CGPoint(x:w*0.40,y:h*0.18)],trim,outline,2.2)
+                ellipse(CGRect(x:-w*0.16,y:-h*0.02,width:w*0.32,height:h*0.32),.black,outline,2)
+            case 3,7:
+                shape([CGPoint(x:-w*0.38,y:-h*0.35),CGPoint(x:-w*0.25,y:h*0.18),CGPoint(x:0,y:h*0.48),
+                       CGPoint(x:w*0.25,y:h*0.18),CGPoint(x:w*0.38,y:-h*0.35)],trim,outline,2.4)
+                for row in 0..<3 { ellipse(CGRect(x:-w*0.20+CGFloat(row)*w*0.04,y:-h*0.12+CGFloat(row)*h*0.15,
+                                                  width:w*0.40-CGFloat(row)*w*0.08,height:h*0.12),.systemCyan,outline,1.5) }
+            case 4:
+                rect(base,w*0.10,UIColor(red:0.34,green:0.25,blue:0.19,alpha:1),outline,2.4)
+                shape([CGPoint(x:-w*0.24,y:-h*0.10),CGPoint(x:-w*0.14,y:h*0.16),CGPoint(x:0,y:h*0.04),
+                       CGPoint(x:w*0.12,y:h*0.28),CGPoint(x:w*0.25,y:-h*0.10)],.systemOrange,outline,2)
+            case 5:
+                rect(base,w*0.12,trim,outline,2.4)
+                ellipse(CGRect(x:-w*0.32,y:-h*0.02,width:w*0.64,height:h*0.42),.darkGray,outline,2.2).zRotation = 0.25
+                ellipse(CGRect(x:-w*0.13,y:h*0.17,width:w*0.26,height:h*0.12),.black,outline,1.4)
+            case 6,10:
+                shape([CGPoint(x:-w*0.46,y:-h*0.34),CGPoint(x:-w*0.46,y:h*0.10),CGPoint(x:0,y:h*0.48),
+                       CGPoint(x:w*0.46,y:h*0.10),CGPoint(x:w*0.46,y:-h*0.34)],trim,outline,2.4)
+                rect(CGRect(x:-w*0.11,y:-h*0.34,width:w*0.22,height:h*0.32),w*0.04,.brown,outline,1.8)
+            case 8:
+                rect(base,w*0.08,trim,outline,2.4)
+                shape([CGPoint(x:-w*0.48,y:h*0.20),CGPoint(x:-w*0.30,y:h*0.34),CGPoint(x:0,y:-h*0.02),
+                       CGPoint(x:w*0.30,y:h*0.34),CGPoint(x:w*0.48,y:h*0.20)],.lightGray,outline,2.4)
+            default:
+                rect(base,w*0.09,.darkGray,outline,2.4)
+                rect(CGRect(x:-w*0.24,y:-h*0.16,width:w*0.48,height:h*0.48),w*0.08,.systemTeal,outline,2.2)
+            }
+            root.children.first?.name = "body"
+            let turret = SKNode(); turret.name = "turret"; root.addChild(turret)
+            let barrel = SKShapeNode(rectOf: CGSize(width:w*0.10,height:h*0.36),cornerRadius:w*0.04)
+            barrel.position = CGPoint(x:w*0.02,y:h*0.14); barrel.fillColor = .lightGray; barrel.strokeColor = outline
+            barrel.lineWidth = 1.8; turret.addChild(barrel)
+            return root
+        }
+
         if spirit {
             let flame = shape([
                 CGPoint(x: 0, y: -h * 0.32), CGPoint(x: -w * 0.27, y: -h * 0.04),
