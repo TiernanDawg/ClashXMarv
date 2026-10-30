@@ -840,6 +840,9 @@ final class BattleModel: ObservableObject {
 
     private func nearestTarget(from entity: BattleEntity, range: Double) -> Int? {
         let sourceCard = CardCatalog.byID[entity.cardID]
+        let opponent: Team = entity.team == .blue ? .red : .blue
+        let lane = entity.x < 9 ? "left" : "right"
+        let lanePrincessFallen = fallenTowerKeys.contains("\(opponent.rawValue)-\(lane)")
         return entities.indices.filter { i in
             let target = entities[i]
             guard target.alive && target.team != entity.team && target.id != entity.id &&
@@ -855,14 +858,27 @@ final class BattleModel: ObservableObject {
             }
             return true
         }.min { a, b in
-            let ad = hypot(entities[a].x - entity.x, entities[a].y - entity.y)
-            let bd = hypot(entities[b].x - entity.x, entities[b].y - entity.y)
-            let at = CardCatalog.byID[entities[a].cardID]?.kind
-            let bt = CardCatalog.byID[entities[b].cardID]?.kind
+            let first = entities[a], second = entities[b]
+            let da = hypot(first.x - entity.x, first.y - entity.y)
+            let db = hypot(second.x - entity.x, second.y - entity.y)
+            let ka = CardCatalog.byID[first.cardID]?.kind
+            let kb = CardCatalog.byID[second.cardID]?.kind
             let buildingTarget = sourceCard?.behavior.contains(.buildingTarget) == true
-            let ap = entities[a].tower ? (buildingTarget ? -0.8 : 1.15) : (at == .building ? 0.25 : 0)
-            let bp = entities[b].tower ? (buildingTarget ? -0.8 : 1.15) : (bt == .building ? 0.25 : 0)
-            return ad + ap < bd + bp
+            func priority(_ candidate: BattleEntity, _ kind: CardKind?) -> Double {
+                if buildingTarget { return candidate.tower ? 0 : (kind == .building ? 0.2 : 100) }
+                if lanePrincessFallen {
+                    // Once this lane's Princess Tower falls, troops are the first priority;
+                    // after the lane is clear, pursue the nearest remaining structure/King.
+                    if kind == .troop && !candidate.tower { return 0 }
+                    if kind == .building { return 1 }
+                    if candidate.tower { return 2 }
+                    return 0
+                }
+                return candidate.tower ? 1.15 : (kind == .building ? 0.25 : 0)
+            }
+            let scoreA = da + priority(first, ka)
+            let scoreB = db + priority(second, kb)
+            return scoreA == scoreB ? first.id < second.id : scoreA < scoreB
         }
     }
 
