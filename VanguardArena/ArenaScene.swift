@@ -334,7 +334,12 @@ final class ArenaScene: SKScene {
                         label.run(.sequence([.scale(to: 1.35, duration: 0.12), .scale(to: 1.0, duration: 0.12)]))
                     }
                     if reduceMotion { label.run(.sequence([.wait(forDuration: 0.25), .removeFromParent()])) }
-                    else { label.run(.sequence([.group([.moveBy(x: 0, y: tileHeight * 1.15, duration: 0.65), .fadeOut(withDuration: 0.65)]), .removeFromParent()])) }
+                    else {
+                        label.setScale(0.72)
+                        label.run(.sequence([.group([.moveBy(x: 0, y: tileHeight * 1.15, duration: 0.65),
+                                                    .scale(to: 1.0, duration: 0.12), .fadeOut(withDuration: 0.65)]),
+                                             .removeFromParent()]))
+                    }
                 }
             }
         }
@@ -548,10 +553,25 @@ final class ArenaScene: SKScene {
             addChild(trail)
             trail.run(.sequence([.fadeOut(withDuration: style == "beam" ? 0.24 : 0.18), .removeFromParent()]))
             if style == "projectile" {
-                let bolt = SKShapeNode(circleOfRadius: max(2, tileWidth * 0.12))
-                bolt.position = from; bolt.fillColor = color; bolt.strokeColor = .white; bolt.lineWidth = 0.8; bolt.glowWidth = 3; bolt.zPosition = 860
+                let boltPath = CGMutablePath()
+                boltPath.move(to: CGPoint(x: 0, y: tileWidth * 0.20))
+                boltPath.addLine(to: CGPoint(x: tileWidth * 0.11, y: -tileWidth * 0.10))
+                boltPath.addLine(to: CGPoint(x: 0, y: -tileWidth * 0.20))
+                boltPath.addLine(to: CGPoint(x: -tileWidth * 0.11, y: -tileWidth * 0.10))
+                boltPath.closeSubpath()
+                let bolt = SKShapeNode(path: boltPath)
+                bolt.position = from; bolt.fillColor = color; bolt.strokeColor = .white
+                bolt.lineWidth = 1; bolt.glowWidth = 4; bolt.zPosition = 860
                 addChild(bolt)
-                bolt.run(.sequence([.move(to: to, duration: 0.15), .fadeOut(withDuration: 0.06), .removeFromParent()]))
+                let travel = CGPoint(x: to.x - from.x, y: to.y - from.y)
+                bolt.zRotation = atan2(travel.y, travel.x) - .pi / 2
+                bolt.run(.group([.move(to: to, duration: 0.17), .rotate(byAngle: .pi * 0.7, duration: 0.17)]))
+                bolt.run(.sequence([.wait(forDuration: 0.17), .fadeOut(withDuration: 0.06), .removeFromParent()]))
+                let muzzle = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.18))
+                muzzle.position = from; muzzle.fillColor = .systemYellow.withAlphaComponent(0.8)
+                muzzle.strokeColor = .white; muzzle.glowWidth = 4; muzzle.zPosition = 861
+                addChild(muzzle)
+                muzzle.run(.sequence([.group([.scale(to: 1.9, duration: 0.08), .fadeOut(withDuration: 0.08)]), .removeFromParent()]))
                 let impact = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.20))
                 impact.position = to
                 impact.fillColor = color.withAlphaComponent(0.30)
@@ -561,10 +581,19 @@ final class ArenaScene: SKScene {
                 impact.zPosition = 865
                 addChild(impact)
                 impact.run(.sequence([
-                    .wait(forDuration: 0.14),
-                    .group([.scale(to: 1.9, duration: 0.12), .fadeOut(withDuration: 0.12)]),
+                    .wait(forDuration: 0.17),
+                    .group([.scale(to: 2.1, duration: 0.14), .fadeOut(withDuration: 0.14)]),
                     .removeFromParent()
                 ]))
+                for index in 0..<5 {
+                    let spark = SKShapeNode(circleOfRadius: max(1, tileWidth * 0.045))
+                    spark.position = to; spark.fillColor = index.isMultiple(of: 2) ? .systemYellow : .white
+                    spark.strokeColor = .clear; spark.zPosition = 866; addChild(spark)
+                    let angle = CGFloat(index) * (.pi * 2 / 5)
+                    spark.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 0.28,
+                                                         y: sin(angle) * tileHeight * 0.28, duration: 0.18),
+                                                .fadeOut(withDuration: 0.18)]), .removeFromParent()]))
+                }
             } else {
                 let flash = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.25))
                 flash.position = to; flash.fillColor = UIColor.systemPurple.withAlphaComponent(0.24); flash.strokeColor = .systemPurple; flash.lineWidth = 2; flash.zPosition = 855
@@ -608,6 +637,16 @@ final class ArenaScene: SKScene {
         } else {
             ring.run(.sequence([.group([.scale(to: radius / max(1, ring.frame.width / 2) * 1.35, duration: 0.22),
                                        .fadeOut(withDuration: 0.30)]), .removeFromParent()]))
+            for index in 0..<10 {
+                let spark = SKShapeNode(circleOfRadius: max(1.5, tileWidth * 0.055))
+                spark.position = center; spark.fillColor = index.isMultiple(of: 2) ? .systemYellow : .systemOrange
+                spark.strokeColor = .white.withAlphaComponent(0.6); spark.lineWidth = 0.5
+                spark.zPosition = 875; addChild(spark)
+                let angle = CGFloat(index) * (.pi * 2 / 10)
+                let distance = radius * (0.48 + CGFloat(index % 3) * 0.12)
+                spark.run(.sequence([.group([.moveBy(x: cos(angle) * distance, y: sin(angle) * distance, duration: 0.28),
+                                             .scale(to: 0.2, duration: 0.28), .fadeOut(withDuration: 0.28)]), .removeFromParent()]))
+            }
             if !reduceMotion && !thermalLimited {
                 let shake = min(6.0, max(1.5, radius * 0.12))
                 arenaCamera?.removeAction(forKey: "spell-impact-shake")
