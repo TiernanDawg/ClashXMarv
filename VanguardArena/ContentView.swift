@@ -815,7 +815,12 @@ struct CardGlyph: View {
         return "figure.fencing"
     }
     private var palette: [Color] {
-        switch card.rarity { case .common: return [Color(red: 0.2, green: 0.48, blue: 0.70), Color(red: 0.08, green: 0.18, blue: 0.35)]; case .rare: return [Color(red: 0.95, green: 0.48, blue: 0.18), Color(red: 0.52, green: 0.15, blue: 0.12)]; case .epic: return [Color(red: 0.62, green: 0.30, blue: 0.94), Color(red: 0.25, green: 0.12, blue: 0.45)]; case .legendary: return [Color(red: 0.10, green: 0.72, blue: 0.68), Color(red: 0.04, green: 0.24, blue: 0.37)] }
+        let index = CardCatalog.all.firstIndex(where: { $0.id == card.id }) ?? 0
+        let hue = (Double(index) * 0.61803398875).truncatingRemainder(dividingBy: 1)
+        return [
+            Color(hue: hue, saturation: 0.78, brightness: 0.96),
+            Color(hue: (hue + 0.11).truncatingRemainder(dividingBy: 1), saturation: 0.88, brightness: 0.34)
+        ]
     }
 }
 struct CardDetailView: View {
