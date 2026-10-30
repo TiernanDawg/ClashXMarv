@@ -947,7 +947,31 @@ final class BattleModel: ObservableObject {
 
     private func advanceTarget(for entity: BattleEntity) -> BattleEntity? {
         let opponent: Team = entity.team == .blue ? .red : .blue
-        let preferredLaneX = entity.x < 9 ? 3.2 : 14.8
+        let lane = entity.x < 9 ? "left" : "right"
+        let preferredLaneX = lane == "left" ? 3.2 : 14.8
+        let lanePrincessFallen = fallenTowerKeys.contains("\(opponent.rawValue)-\(lane)")
+        let buildingOnly = CardCatalog.byID[entity.cardID]?.behavior.contains(.buildingTarget) == true
+
+        if lanePrincessFallen {
+            // In a broken lane, pursue the nearest valid enemy troop first; building-target
+            // cards deliberately skip this step and continue toward the nearest structure.
+            if !buildingOnly,
+               let nearestTroop = entities.filter({
+                   $0.alive && $0.team == opponent && !$0.tower &&
+                   CardCatalog.byID[$0.cardID]?.kind == .troop
+               }).min(by: {
+                   hypot($0.x - entity.x, $0.y - entity.y) < hypot($1.x - entity.x, $1.y - entity.y)
+               }) {
+                return nearestTroop
+            }
+            return entities.filter({
+                $0.alive && $0.team == opponent &&
+                ($0.tower || CardCatalog.byID[$0.cardID]?.kind == .building)
+            }).min(by: {
+                hypot($0.x - entity.x, $0.y - entity.y) < hypot($1.x - entity.x, $1.y - entity.y)
+            })
+        }
+
         if let laneTower = entities.first(where: {
             $0.alive && $0.tower && !$0.king && $0.team == opponent &&
             abs($0.x - preferredLaneX) < 1.0
