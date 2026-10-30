@@ -12,6 +12,7 @@ final class ArenaScene: SKScene {
     private var debugLayer: SKNode?
     private var renderedEventIDs = Set<UUID>()
     private var lastHP: [Int: Double] = [:]
+    private var lastTeams: [Int: Team] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
     private var lastAttackClock: [Int: Double] = [:]
     private var thermalLimited = false
@@ -71,6 +72,7 @@ final class ArenaScene: SKScene {
         removeAllChildren()
         entityNodes.removeAll()
         lastHP.removeAll()
+        lastTeams.removeAll()
         lastPositions.removeAll()
         lastAttackClock.removeAll()
         let field = SKShapeNode(rect: CGRect(x: 2, y: 2, width: size.width - 4, height: size.height - 4), cornerRadius: 12)
@@ -173,7 +175,7 @@ final class ArenaScene: SKScene {
                         ]), withKey: "collapse")
                     }
                 } else if !reduceMotion && !thermalLimited {
-                    addDeathPoof(at: point, team: model.entities.first(where: { $0.id == id })?.team ?? .blue)
+                    addDeathPoof(at: point, team: lastTeams[id] ?? .blue)
                     // Troops/buildings receive a short readable death animation instead of vanishing.
                     node.run(.sequence([
                         .group([.scale(to: 0.18, duration: 0.24), .fadeOut(withDuration: 0.24),
@@ -184,6 +186,7 @@ final class ArenaScene: SKScene {
             }
             entityNodes.removeValue(forKey: id)
             lastHP.removeValue(forKey: id)
+            lastTeams.removeValue(forKey: id)
             lastPositions.removeValue(forKey: id)
             lastAttackClock.removeValue(forKey: id)
         }
@@ -217,6 +220,7 @@ final class ArenaScene: SKScene {
                 flash.run(.sequence([.fadeOut(withDuration: 0.12), .removeFromParent()]))
             }
             lastHP[entity.id] = entity.hp
+            lastTeams[entity.id] = entity.team
             let newPosition = CGPoint(x: CGFloat(entity.x) * tileWidth, y: CGFloat(entity.y) * tileHeight)
             if !reduceMotion && !thermalLimited,
                let oldPosition = lastPositions[entity.id],
