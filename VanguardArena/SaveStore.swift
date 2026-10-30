@@ -35,6 +35,9 @@ struct MetaProgression: Codable {
     var tutorialCompleted = false
     var cardCopies: [String: Int]? = [:]
     var battleSnapshot: BattleSnapshot? = nil
+    var challengeWins: Int? = 0
+    var challengeClaimed: Bool? = false
+    var challengeDate: Date? = nil
 }
 struct PlayerProfile: Codable {
     var schemaVersion = 3
