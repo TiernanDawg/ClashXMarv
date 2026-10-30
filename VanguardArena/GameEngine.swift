@@ -100,6 +100,9 @@ struct BattleEvent: Identifiable {
     var effectRadius: Double? = nil
 }
 struct ArenaDebugItem {
+    let entityID: Int
+    let team: Team
+    let isTower: Bool
     let x: Double
     let y: Double
     let path: [ArenaCell]
@@ -825,7 +828,8 @@ final class BattleModel: ObservableObject {
                     ? (entity.king ? Balance.kingTowerRange : Balance.princessTowerRange)
                     : max(card?.range ?? 0, Balance.sightRange))
             let target = targetIndex.map { entities[$0] }
-            return ArenaDebugItem(x: entity.x, y: entity.y,
+            return ArenaDebugItem(entityID: entity.id, team: entity.team, isTower: entity.tower,
+                                  x: entity.x, y: entity.y,
                                   path: navigationPaths[entity.id]?.cells ?? [],
                                   targetX: target?.x, targetY: target?.y, targetID: target?.id,
                                   aggroRange: entity.tower ? range : Balance.sightRange,
