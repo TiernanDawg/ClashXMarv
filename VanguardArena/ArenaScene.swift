@@ -828,6 +828,7 @@ final class ArenaScene: SKScene {
 
         let hpY = entity.tower ? tileHeight * 1.10 : tileHeight * 0.86
         let hpBack = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? 1.42 : 1.23), height: max(3, tileHeight * 0.17)), cornerRadius: 2)
+        hpBack.name = "hp-background"
         hpBack.position = CGPoint(x: 0, y: hpY); hpBack.fillColor = UIColor.black.withAlphaComponent(0.85); hpBack.strokeColor = UIColor.white.withAlphaComponent(0.65); hpBack.lineWidth = 0.6
         root.addChild(hpBack)
         let hp = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? 1.34 : 1.15), height: max(2, tileHeight * 0.12)), cornerRadius: 1)
@@ -835,6 +836,7 @@ final class ArenaScene: SKScene {
         root.addChild(hp)
         if entity.deployClock > 0 {
             let ring = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.82)
+            ring.name = "deploy-ring"
             ring.strokeColor = UIColor.white.withAlphaComponent(0.88); ring.lineWidth = 2; ring.fillColor = .clear; root.addChild(ring)
             ring.run(.sequence([.wait(forDuration: entity.deployClock), .fadeOut(withDuration: 0.16), .removeFromParent()]))
         }
@@ -870,7 +872,7 @@ final class ArenaScene: SKScene {
         node.removeAction(forKey: "deploy-pop")
         node.setScale(1)
         // The audit sheet is for silhouette/palette, not HUD health bars.
-        for child in node.children where child.name == "hp" || child.position.y > tileHeight * 0.72 {
+        for child in node.children where ["hp", "hp-background", "deploy-ring"].contains(child.name ?? "") {
             child.removeFromParent()
         }
         node.position = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
