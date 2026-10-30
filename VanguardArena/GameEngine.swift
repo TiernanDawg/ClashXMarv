@@ -105,6 +105,7 @@ struct ArenaDebugItem {
     let path: [ArenaCell]
     let targetX: Double?
     let targetY: Double?
+    let targetID: Int?
     let aggroRange: Double
     let attackRange: Double
 }
@@ -826,7 +827,7 @@ final class BattleModel: ObservableObject {
             let target = targetIndex.map { entities[$0] }
             return ArenaDebugItem(x: entity.x, y: entity.y,
                                   path: navigationPaths[entity.id]?.cells ?? [],
-                                  targetX: target?.x, targetY: target?.y,
+                                  targetX: target?.x, targetY: target?.y, targetID: target?.id,
                                   aggroRange: entity.tower ? range : Balance.sightRange,
                                   attackRange: range)
         }
