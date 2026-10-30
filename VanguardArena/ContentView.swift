@@ -15,6 +15,10 @@ struct RootView: View {
     @State private var screen: Screen = .home
     @StateObject private var battleHolder = BattleHolder()
     private var battle: BattleModel? { battleHolder.model }
+    private var dailyChallengeWins: Int {
+        guard let date = profile.profile.meta?.challengeDate, Calendar.current.isDateInToday(date) else { return 0 }
+        return dailyChallengeWins
+    }
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
     @State private var detail: CardDefinition?
     @State private var lastResultSaved = false
@@ -393,13 +397,13 @@ struct RootView: View {
                         Spacer()
                         if profile.profile.meta?.challengeClaimed == true {
                             Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
-                        } else if (profile.profile.meta?.challengeWins ?? 0) >= 2 {
+                        } else if dailyChallengeWins >= 2 {
                             Button("CLAIM") { claimDailyChallenge() }.font(.caption.bold()).padding(9).background(gold, in: Capsule()).foregroundStyle(ink)
                         } else {
                             Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.3))
                         }
                     }
-                    ProgressView(value: Double(min(2, profile.profile.meta?.challengeWins ?? 0)), total: 2).tint(gold)
+                    ProgressView(value: Double(dailyChallengeWins), total: 2).tint(gold)
                     Text("Win two standard ladder matches. Practice matches and replays do not count. Progress resets each day; unclaimed rewards expire at reset.").font(.caption).foregroundStyle(.white.opacity(0.5))
                 }.padding(14).background(panel, in: RoundedRectangle(cornerRadius: 16)).padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 6) {
