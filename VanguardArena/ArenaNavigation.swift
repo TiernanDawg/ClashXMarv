@@ -43,11 +43,13 @@ enum ArenaNavigation {
               (0..<width).contains(goal.x), (0..<height).contains(goal.y) else { return [] }
         var obstacles = blocked
         obstacles.remove(goal)
-        obstacles.remove(start) // A unit pushed onto a blocked tile must still be able to escape.\n        guard isWalkable(goal, blocked: obstacles) else { return [] }
+        obstacles.remove(start) // A unit pushed onto a blocked tile must still be able to escape.
+        guard isWalkable(goal, blocked: obstacles) else { return [] }
         if start == goal { return [start] }
 
         func heuristic(_ a: ArenaCell, _ b: ArenaCell) -> Int {
-            let dx = abs(a.x - b.x), dy = abs(a.y - b.y)\n            return 14 * min(dx, dy) + 10 * abs(dx - dy)
+            let dx = abs(a.x - b.x), dy = abs(a.y - b.y)
+            return 14 * min(dx, dy) + 10 * abs(dx - dy)
         }
         let directions = [(0,1),(1,0),(0,-1),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]
         var open: [ArenaCell] = [start]
