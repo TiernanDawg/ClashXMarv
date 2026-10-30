@@ -224,6 +224,29 @@ enum CardSpriteFactory {
             ellipse(CGRect(x: -w * 0.13, y: -h * 0.04, width: w * 0.26, height: h * 0.22), .systemYellow, outline, 1.2, z: 3)
             ellipse(CGRect(x: -w * 0.075, y: h * 0.06, width: w * 0.055, height: h * 0.07), outline, .clear, 0, z: 4)
             ellipse(CGRect(x: w * 0.02, y: h * 0.06, width: w * 0.055, height: h * 0.07), outline, .clear, 0, z: 4)
+            // Their three elemental silhouettes must remain distinct even when flattened:
+            // Fire gets a crown flame, Ice gets broad crystal fins, and Static gets forked arcs.
+            switch index % 3 {
+            case 1:
+                shape([CGPoint(x: -w * 0.22, y: h * 0.10), CGPoint(x: -w * 0.48, y: h * 0.34),
+                       CGPoint(x: -w * 0.36, y: -h * 0.02)], .systemCyan, outline, 1.8)
+                shape([CGPoint(x: w * 0.22, y: h * 0.10), CGPoint(x: w * 0.48, y: h * 0.34),
+                       CGPoint(x: w * 0.36, y: -h * 0.02)], .systemCyan, outline, 1.8)
+                shape([CGPoint(x: 0, y: h * 0.34), CGPoint(x: -w * 0.12, y: h * 0.56),
+                       CGPoint(x: w * 0.12, y: h * 0.56)], .white, outline, 1.5)
+            case 2:
+                shape([CGPoint(x: -w * 0.22, y: h * 0.08), CGPoint(x: -w * 0.52, y: h * 0.28),
+                       CGPoint(x: -w * 0.30, y: h * 0.28), CGPoint(x: -w * 0.46, y: h * 0.48),
+                       CGPoint(x: -w * 0.10, y: h * 0.30)], .systemYellow, outline, 1.8)
+                shape([CGPoint(x: w * 0.22, y: h * 0.08), CGPoint(x: w * 0.52, y: h * 0.28),
+                       CGPoint(x: w * 0.30, y: h * 0.28), CGPoint(x: w * 0.46, y: h * 0.48),
+                       CGPoint(x: w * 0.10, y: h * 0.30)], .systemYellow, outline, 1.8)
+            default:
+                shape([CGPoint(x: -w * 0.18, y: h * 0.14), CGPoint(x: -w * 0.42, y: h * 0.38),
+                       CGPoint(x: -w * 0.08, y: h * 0.30)], .systemOrange, outline, 1.6)
+                shape([CGPoint(x: w * 0.18, y: h * 0.14), CGPoint(x: w * 0.42, y: h * 0.38),
+                       CGPoint(x: w * 0.08, y: h * 0.30)], .systemOrange, outline, 1.6)
+            }
             // Fire/ice/electric spirits are tiny troops, not static spell glyphs:
             // add short articulated flame-feet so their hop/walk cycle is visible.
             for (name, side) in [("leg-left", -1.0), ("leg-right", 1.0)] {
