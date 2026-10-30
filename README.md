@@ -98,3 +98,10 @@ The sources support the product decisions above, but they do not validate this i
 - **Bot transparency:** the battle HUD labels the rival's difficulty band and calculated card level. Difficulty is descriptive of the existing trophy-band response timing, not a claim of competitive matchmaking.
 - **Deck diagnostics:** deck builder suggestions now check air defense, tower win condition, low-cost spell availability, spell coverage, and swarm answers. They are advisory and never auto-edit the deck.
 - **Existing friction controls retained:** opponent emotes can be muted persistently in Settings, and saved battles can be replayed from Battle Log.
+
+
+## Combat and arena presentation
+
+The battle loop redirects a troop to its own lane's surviving Princess Tower and retargets it to the King Tower when that lane tower falls. Troops pursue visible legal enemies instead of continuing toward a stale lane coordinate; ground units route through bridge waypoints while flying units take direct paths. Tower and troop attacks now emit distinct projectile, beam, and melee feedback. Tower destruction has a visible collapse/rubble effect and the battle header shows each side's three crown slots.
+
+The SpriteKit arena uses layered hero, flying-unit, building, and tower illustrations instead of character-name initials. Walking, idle, wing, attack, projectile, beam, water, impact, and tower-collapse motion respect Reduce Motion and thermal limits.

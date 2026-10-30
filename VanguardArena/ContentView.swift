@@ -607,7 +607,26 @@ struct RootView: View {
             HStack {
                 Button { battle?.cancelSelection(); screen = .home } label: { Image(systemName: "xmark").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Leave battle")
                 Spacer()
-                VStack(spacing: 2) { Text(battle?.timeText ?? "3:00").font(.title2.monospacedDigit().bold()); Text("RIVAL  ·  \(battle?.redCrowns ?? 0)  —  \(battle?.blueCrowns ?? 0)  ·  YOU").font(.system(size: 9, weight: .black)).foregroundStyle(.white.opacity(0.7)) }
+                VStack(spacing: 3) {
+                    Text(battle?.timeText ?? "3:00").font(.title2.monospacedDigit().bold())
+                    HStack(spacing: 9) {
+                        HStack(spacing: 3) {
+                            Text("RIVAL").font(.system(size: 8, weight: .black))
+                            ForEach(0..<3, id: \.self) { crown in
+                                Image(systemName: "crown.fill").font(.system(size: 9, weight: .black))
+                                    .foregroundStyle(crown < (battle?.redCrowns ?? 0) ? gold : Color.white.opacity(0.18))
+                            }
+                        }
+                        Text("VS").font(.system(size: 8, weight: .black)).foregroundStyle(.white.opacity(0.45))
+                        HStack(spacing: 3) {
+                            ForEach(0..<3, id: \.self) { crown in
+                                Image(systemName: "crown.fill").font(.system(size: 9, weight: .black))
+                                    .foregroundStyle(crown < (battle?.blueCrowns ?? 0) ? gold : Color.white.opacity(0.18))
+                            }
+                            Text("YOU").font(.system(size: 8, weight: .black))
+                        }
+                    }
+                }
                 Spacer()
                 Button {
                     let label = emotes[emoteIndex % emotes.count]

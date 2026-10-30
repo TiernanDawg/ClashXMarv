@@ -36,4 +36,52 @@ final class BattleSelfTestTests: XCTestCase {
         let standard = BattleModel(deck: deck, seed: 42, isPractice: true, practiceScenario: .standard)
         XCTAssertEqual(standard.entities.filter { $0.tower }.count, 6)
     }
+
+    func testTroopsRedirectToKingWhenTheirLanePrincessTowerFalls() {
+        let runner = CardCatalog.all.first { $0.kind == .troop && $0.speed > 0 && !$0.behavior.contains(.buildingTarget) }!
+        let setup = [
+            BattleEntity(id: 1, cardID: "tower", team: .blue, x: 3.2, y: 2, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 2, cardID: "tower", team: .blue, x: 14.8, y: 2, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 3, cardID: "tower", team: .blue, x: 9, y: 0.7, hp: 4200, maxHP: 4200, tower: true, king: true),
+            BattleEntity(id: 4, cardID: "tower", team: .red, x: 3.2, y: 30, hp: 0, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 5, cardID: "tower", team: .red, x: 14.8, y: 30, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 6, cardID: "tower", team: .red, x: 9, y: 31.3, hp: 4200, maxHP: 4200, tower: true, king: true),
+            BattleEntity(id: 7, cardID: runner.id, team: .blue, x: 3.2, y: 21.5, hp: runner.hp, maxHP: runner.hp)
+        ]
+        let model = BattleModel(deck: CardCatalog.starterDeck, seed: 71, isPractice: true, practiceScenario: .standard, initialEntities: setup)
+        for _ in 0..<100 { model.tick() }
+        let troop = model.entities.first { $0.id == 7 }
+        XCTAssertNotNil(troop)
+        XCTAssertGreaterThan(troop?.x ?? 3.2, 3.25, "Troops must turn toward the King Tower after their lane Princess Tower falls")
+        XCTAssertTrue(model.events.contains { $0.style == "tower-destroyed" })
+    }
+
+    func testTroopsChaseVisibleEnemyUnitsViaBridge() {
+        let runner = CardCatalog.all.first { $0.kind == .troop && $0.speed > 0 && !$0.behavior.contains(.buildingTarget) }!
+        let enemy = CardCatalog.all.first { $0.kind == .troop && $0.speed > 0 && !$0.behavior.contains(.buildingTarget) && $0.id != runner.id }!
+        let setup = [
+            BattleEntity(id: 1, cardID: "tower", team: .blue, x: 3.2, y: 2, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 2, cardID: "tower", team: .blue, x: 14.8, y: 2, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 3, cardID: "tower", team: .blue, x: 9, y: 0.7, hp: 4200, maxHP: 4200, tower: true, king: true),
+            BattleEntity(id: 4, cardID: "tower", team: .red, x: 3.2, y: 30, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 5, cardID: "tower", team: .red, x: 14.8, y: 30, hp: 2600, maxHP: 2600, tower: true, awake: true),
+            BattleEntity(id: 6, cardID: "tower", team: .red, x: 9, y: 31.3, hp: 4200, maxHP: 4200, tower: true, king: true),
+            BattleEntity(id: 7, cardID: runner.id, team: .blue, x: 3.2, y: 14.2, hp: runner.hp, maxHP: runner.hp),
+            BattleEntity(id: 8, cardID: enemy.id, team: .red, x: 3.2, y: 19.0, hp: enemy.hp, maxHP: enemy.hp, stunClock: 8)
+        ]
+        let model = BattleModel(deck: CardCatalog.starterDeck, seed: 72, isPractice: true, practiceScenario: .standard, initialEntities: setup)
+        for _ in 0..<45 { model.tick() }
+        let troop = model.entities.first { $0.id == 7 }
+        XCTAssertNotNil(troop)
+        XCTAssertGreaterThan(troop?.y ?? 14.2, 14.5, "Troops must pursue a visible enemy rather than drift toward a fixed tower point")
+    }
+
+    func testCombatTickKeepsEntitiesFinite() {
+        let model = BattleModel(deck: CardCatalog.starterDeck, seed: 99, automatedBlue: true)
+        for _ in 0..<1200 where !model.isFinished { model.tick() }
+        XCTAssertTrue(model.entities.allSatisfy {
+            $0.x.isFinite && $0.y.isFinite && $0.hp.isFinite &&
+            $0.x >= 0 && $0.x <= 18 && $0.y >= 0 && $0.y <= 32
+        })
+    }
 }
