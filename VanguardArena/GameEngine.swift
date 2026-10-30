@@ -367,13 +367,13 @@ final class BattleModel: ObservableObject {
         if soundEnabled { ProceduralAudio.shared.play(.spell, enabled: true) }
         if analog.contains("rage") {
             activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 6.0))
-            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed))
+            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-telegraph", effectRadius: 3.0))\n            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-impact", effectRadius: 3.0))
             return
         }
         if analog.contains("goblin barrel") || analog.contains("skeleton barrel") {
             let child = analog.contains("goblin barrel") ? (CardCatalog.all.first { $0.analog == "Goblins" }?.id ?? "green-gobbler") : (CardCatalog.all.first { $0.analog == "Skeletons" }?.id ?? "ant-dude-swarm")
             for n in 0..<3 { createSpawn(team: team, x: x + (Double(n) - 1) * 0.35, y: y, cardID: child, scale: 1.0) }
-            events.append(BattleEvent(x: x, y: y, text: "BARREL!", born: elapsed))
+            events.append(BattleEvent(x: x, y: y, text: "BARREL!", born: elapsed, style: "spell-impact", effectRadius: 1.5))
             return
         }
         let radius: Double
@@ -383,6 +383,10 @@ final class BattleModel: ObservableObject {
         else if analog.contains("poison") || analog.contains("earthquake") || analog.contains("freeze") || analog.contains("tornado") { radius = 3.4 }
         else if analog.contains("barrel") { radius = 1.5 }
         else { radius = 2.7 }
+        events.append(BattleEvent(x: x, y: y, text: "SPELL", born: elapsed,
+                                  style: "spell-telegraph", effectRadius: radius))
+        events.append(BattleEvent(x: x, y: y, text: "IMPACT", born: elapsed,
+                                  style: "spell-impact", effectRadius: radius))
         if card.behavior.contains(.areaOverTime) {
             activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 5.0))
         }
