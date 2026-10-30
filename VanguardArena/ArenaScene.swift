@@ -84,7 +84,9 @@ final class ArenaScene: SKScene {
             for y in 0..<32 where (x + y) % 2 == 0 {
                 let tile = SKShapeNode(rectOf: CGSize(width: tileWidth - 1, height: tileHeight - 1), cornerRadius: 1)
                 tile.position = CGPoint(x: (CGFloat(x) + 0.5) * tileWidth, y: (CGFloat(y) + 0.5) * tileHeight)
-                tile.fillColor = UIColor.white.withAlphaComponent(0.025)
+                tile.fillColor = (x + y).isMultiple(of: 4)
+                    ? UIColor(red: 0.42, green: 0.64, blue: 0.34, alpha: 0.42)
+                    : UIColor(red: 0.30, green: 0.53, blue: 0.28, alpha: 0.38)
                 tile.strokeColor = .clear
                 tile.zPosition = -9
                 addChild(tile)
@@ -171,6 +173,7 @@ final class ArenaScene: SKScene {
                         ]), withKey: "collapse")
                     }
                 } else if !reduceMotion && !thermalLimited {
+                    addDeathPoof(at: point, team: model.entities.first(where: { $0.id == id })?.team ?? .blue)
                     // Troops/buildings receive a short readable death animation instead of vanishing.
                     node.run(.sequence([
                         .group([.scale(to: 0.18, duration: 0.24), .fadeOut(withDuration: 0.24),
@@ -453,6 +456,21 @@ final class ArenaScene: SKScene {
         }
         addChild(layer)
         debugLayer = layer
+    }
+
+    private func addDeathPoof(at point: CGPoint, team: Team) {
+        let tint: UIColor = team == .blue ? .systemBlue : .systemRed
+        for index in 0..<7 {
+            let puff = SKShapeNode(circleOfRadius: max(1.5, tileWidth * 0.075))
+            puff.position = point
+            puff.fillColor = index.isMultiple(of: 2) ? UIColor.white.withAlphaComponent(0.85) : tint.withAlphaComponent(0.72)
+            puff.strokeColor = .clear; puff.zPosition = 940; addChild(puff)
+            let angle = CGFloat(index) * (.pi * 2 / 7)
+            puff.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 0.42,
+                                                y: sin(angle) * tileHeight * 0.42, duration: 0.22),
+                                       .scale(to: 1.7, duration: 0.22), .fadeOut(withDuration: 0.22)]),
+                                .removeFromParent()]))
+        }
     }
 
     private func addDebris(at point: CGPoint) {
