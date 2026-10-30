@@ -9,7 +9,8 @@ final class ArenaScene: SKScene {
     var hapticsEnabled = true
     var themeIndex = 0
     var debugNavigation = false
-    private var debugLayer: SKNode?\n    private var renderedEventIDs = Set<UUID>()
+    private var debugLayer: SKNode?
+    private var renderedEventIDs = Set<UUID>()
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
     private var lastAttackClock: [Int: Double] = [:]
@@ -149,6 +150,8 @@ final class ArenaScene: SKScene {
     }
 
     func render(_ model: BattleModel) {
+        let activeEventIDs = Set(model.events.map(\.id))
+        renderedEventIDs.formIntersection(activeEventIDs)
         let alive = Set(model.entities.map(\.id))
         for id in Array(entityNodes.keys) where !alive.contains(id) {
             if let node = entityNodes[id] {
