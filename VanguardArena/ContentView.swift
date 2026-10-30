@@ -387,7 +387,7 @@ struct RootView: View {
                     }.padding(12).background(panel, in: RoundedRectangle(cornerRadius: 14)).padding(.horizontal, 16)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack { Text("DAILY CHALLENGE").font(.headline.bold()).tracking(1); Spacer(); Text("ROTATES DAILY").font(.system(size: 9, weight: .black)).foregroundStyle(accent) }
+                    HStack { Text("DAILY CHALLENGE").font(.headline.bold()).tracking(1); Spacer(); Text("DAILY RESET").font(.system(size: 9, weight: .black)).foregroundStyle(accent) }
                     HStack(spacing: 12) {
                         Image(systemName: "flag.checkered").font(.title2).foregroundStyle(gold).frame(width: 42, height: 42).background(gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         VStack(alignment: .leading, spacing: 3) {
