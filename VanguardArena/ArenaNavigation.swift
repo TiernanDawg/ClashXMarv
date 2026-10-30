@@ -69,7 +69,7 @@ enum ArenaNavigation {
                     result.append(previous)
                     cursor = previous
                 }
-                return result.reversed()
+                return Array(result.reversed())
             }
             closed.insert(current)
             for (dx, dy) in directions {
