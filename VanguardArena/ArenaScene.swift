@@ -812,8 +812,16 @@ final class ArenaScene: SKScene {
     }
 
     func proofAddTowerDestruction(x: Double, y: Double, destroyedTeam: Team) {
+        let point = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
+        addRubble(at: point)
+        addDebris(at: point)
         addTowerDestructionEffect(BattleEvent(x: x, y: y, text: "TOWER DESTROYED",
                                               born: 0, style: "tower-destroyed", team: destroyedTeam))
+        let banner = SKLabelNode(text: "TOWER DESTROYED")
+        banner.fontName = "AvenirNext-Heavy"; banner.fontSize = 17
+        banner.fontColor = destroyedTeam == .blue ? .systemRed : .systemBlue
+        banner.position = CGPoint(x: size.width * 0.5, y: size.height * 0.54)
+        banner.zPosition = 1100; addChild(banner)
     }
 
     func proofAddCrownTracker(blue: Int, red: Int) {
