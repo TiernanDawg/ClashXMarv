@@ -373,8 +373,14 @@ final class BattleModel: ObservableObject {
                 if analog.contains("earthquake") && !target.tower && CardCatalog.byID[target.cardID]?.kind != .building { return false }
                 let dx = analog.contains("log") ? (target.x - x) * 0.55 : target.x - x
                 return hypot(dx, target.y - y) <= radius
-            }.sorted { analog.contains("lightning") ? entities[$0].hp > entities[$1].hp : entities[$0].hp < entities[$1].hp }
-            let limit = analog.contains("lightning") ? min(3, candidates.count) : candidates.count
+            }.sorted {
+                if analog.contains("lightning") { return entities[$0].hp > entities[$1].hp }
+                let da = hypot(entities[$0].x - x, entities[$0].y - y)
+                let db = hypot(entities[$1].x - x, entities[$1].y - y)
+                return da < db
+            }
+            let targetCap = analog.contains("lightning") ? 3 : (analog.contains("rocket") ? 12 : (analog.contains("arrows") ? 24 : (analog.contains("log") ? 30 : 18)))
+            let limit = min(targetCap, candidates.count)
             for index in candidates.prefix(limit) {
                 let dx = analog.contains("log") ? (entities[index].x - x) * 0.55 : entities[index].x - x
                 let distance = hypot(dx, entities[index].y - y)
