@@ -306,7 +306,7 @@ final class ArenaScene: SKScene {
                     node.childNode(withName: "tower-damage-fx")?.removeFromParent()
                 }
             }
-            if let body = node.childNode(withName: "//body") {
+            if let body = node.childNode(withName: "//body") as? SKShapeNode {
                 if entity.tower {
                     body.fillColor = entity.king ? .systemYellow : (entity.team == .blue ? .systemTeal : .systemPink)
                 } else if highContrast {
