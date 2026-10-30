@@ -303,6 +303,30 @@ enum CardSpriteFactory {
             shape([CGPoint(x:-w*0.28,y:top-h*0.05),CGPoint(x:-w*0.17,y:top+h*0.09),CGPoint(x:w*0.17,y:top+h*0.09),CGPoint(x:w*0.28,y:top-h*0.05)], trim, outline, 1.8).zPosition = 9
         }
 
+        // Short articulated legs and a pivoting forearm make movement and swings readable.
+        for (name, side) in [("leg-left", -1.0), ("leg-right", 1.0)] {
+            let leg = SKNode(); leg.name = name
+            leg.position = CGPoint(x: CGFloat(side) * bodyWidth * 0.22, y: -h * 0.28)
+            leg.zPosition = -2
+            let shin = SKShapeNode(rectOf: CGSize(width: w * 0.16, height: h * 0.25), cornerRadius: w * 0.035)
+            shin.fillColor = trim; shin.strokeColor = outline; shin.lineWidth = 1.8
+            leg.addChild(shin)
+            let boot = SKShapeNode(ellipseOf: CGSize(width: w * 0.22, height: h * 0.10))
+            boot.position = CGPoint(x: w * 0.035, y: -h * 0.12)
+            boot.fillColor = teamColor; boot.strokeColor = outline; boot.lineWidth = 1.3
+            leg.addChild(boot)
+            root.addChild(leg)
+        }
+        let weaponArm = SKNode()
+        weaponArm.name = "weapon-arm"
+        weaponArm.position = CGPoint(x: bodyWidth * 0.40, y: -h * 0.02)
+        weaponArm.zPosition = 6
+        let forearm = SKShapeNode(rectOf: CGSize(width: w * 0.15, height: h * 0.34), cornerRadius: w * 0.06)
+        forearm.position = CGPoint(x: w * 0.04, y: -h * 0.04)
+        forearm.fillColor = teamColor; forearm.strokeColor = outline; forearm.lineWidth = 1.7
+        weaponArm.addChild(forearm)
+        root.addChild(weaponArm)
+
         // Weapons are drawn as a hand-held object with a distinctive profile.
         let weaponX = w * 0.34, weaponY = -h * 0.03
         if card.behavior.contains(.ranged) || mage || archer {
