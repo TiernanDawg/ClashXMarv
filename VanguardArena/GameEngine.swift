@@ -147,6 +147,14 @@ final class BattleModel: ObservableObject {
     private var processedDeaths = Set<Int>()
     private var lastDamageEventTime: [Int: Double] = [:]
     private var activeSpells: [TimedSpell] = []
+    // Target locks keep combat decisions stable across ticks; invalid/dead/out-of-sight targets
+    // are released immediately. Navigation paths are cached by unit and target cell.
+    private var lockedTargetIDs: [Int: Int] = [:]
+    private var targetLockRemaining: [Int: Double] = [:]
+    private var navigationPaths: [Int: CachedArenaPath] = [:]
+    private var stalledFor: [Int: Double] = [:]
+    private var lastProgressPosition: [Int: (Double, Double)] = [:]
+    private var navigationRevision = 0
     private var lastBlueCard: String?
     private var lastRedCard: String?
     var isFinished: Bool { result != nil }
@@ -549,13 +557,14 @@ final class BattleModel: ObservableObject {
             if entities[i].tower {
                 if entities[i].king && !entities[i].awake { continue }
                 entities[i].attackClock -= Balance.tick * (entities[i].rageClock > 0 ? 1.35 : 1.0)
-                if entities[i].attackClock <= 0, let target = nearestTarget(from: entities[i], range: 6.4) {
+                let towerRange = entities[i].king ? Balance.kingTowerRange : Balance.princessTowerRange
+                if entities[i].attackClock <= 0, let target = nearestTarget(from: entities[i], range: towerRange) {
                     let source = entities[i]
                     let victim = entities[target]
                     events.append(BattleEvent(x: victim.x, y: victim.y, text: "ATTACK", born: elapsed,
                                               sourceX: source.x, sourceY: source.y, sourceID: source.id, style: "projectile"))
-                    applyDamage(target, amount: 125 * source.levelMultiplier)
-                    entities[i].attackClock = 0.82
+                    applyDamage(target, amount: (source.king ? Balance.kingTowerDamage : Balance.princessTowerDamage) * source.levelMultiplier)
+                    entities[i].attackClock = source.king ? Balance.kingTowerInterval : Balance.princessTowerInterval
                 }
                 continue
             }
@@ -581,7 +590,7 @@ final class BattleModel: ObservableObject {
                 }
             }
             entities[i].attackClock -= Balance.tick
-            let targetIndex = nearestTarget(from: entities[i], range: max(card.range, Balance.sightRange))
+            let targetIndex = lockedTargetIndex(for: entities[i], range: max(card.range, Balance.sightRange))
             if let target = targetIndex {
                 let distance = hypot(entities[target].x - entities[i].x, entities[target].y - entities[i].y)
                 if distance <= card.range + 0.35 && card.range > 0 {
@@ -613,13 +622,28 @@ final class BattleModel: ObservableObject {
             }
             if !card.behavior.contains(.rampBeam) { entities[i].beamRamp = 1 }
             let goal = movementGoal(for: entities[i], targetIndex: targetIndex)
+            let previousPosition = lastProgressPosition[entities[i].id] ?? (entities[i].x, entities[i].y)
             let dx = goal.0 - entities[i].x, dy = goal.1 - entities[i].y
             let distance = max(0.001, hypot(dx, dy))
             let step = card.speed * Balance.tick * (entities[i].slowClock > 0 ? 0.55 : 1.0) * (entities[i].rageClock > 0 ? 1.35 : 1.0)
             if card.behavior.contains(.charge) { entities[i].travelSinceAttack += step }
-            entities[i].x += dx / distance * step
-            entities[i].y += dy / distance * step
+            entities[i].x += dx / distance * min(step, distance)
+            entities[i].y += dy / distance * min(step, distance)
             entities[i].x = min(17.5, max(0.5, entities[i].x)); entities[i].y = min(31.5, max(0.5, entities[i].y))
+            let moved = hypot(entities[i].x - previousPosition.0, entities[i].y - previousPosition.1)
+            if moved < 0.004 {
+                stalledFor[entities[i].id, default: 0] += Balance.tick
+                if stalledFor[entities[i].id, default: 0] >= 0.5 {
+                    // A half-second without measurable progress invalidates stale route/target state.
+                    navigationPaths.removeValue(forKey: entities[i].id)
+                    lockedTargetIDs.removeValue(forKey: entities[i].id)
+                    targetLockRemaining.removeValue(forKey: entities[i].id)
+                    stalledFor[entities[i].id] = 0
+                }
+            } else {
+                stalledFor[entities[i].id] = 0
+                lastProgressPosition[entities[i].id] = (entities[i].x, entities[i].y)
+            }
         }
         separateUnits()
         let deadUnits = entities.filter { !$0.alive && !$0.tower && !processedDeaths.contains($0.id) }
@@ -682,7 +706,18 @@ final class BattleModel: ObservableObject {
             if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
             else { blueCrowns = min(3, blueCrowns + 1) }
         }
+        let entityCountBeforeCleanup = entities.count
         entities.removeAll { !$0.alive }
+        if entities.count != entityCountBeforeCleanup {
+            // A destroyed tower/building immediately becomes traversable for subsequent A* searches.
+            navigationRevision += 1
+            navigationPaths.removeAll()
+        }
+        let liveIDs = Set(entities.map(\.id))
+        lockedTargetIDs = lockedTargetIDs.filter { liveIDs.contains($0.key) && liveIDs.contains($0.value) }
+        targetLockRemaining = targetLockRemaining.filter { liveIDs.contains($0.key) }
+        stalledFor = stalledFor.filter { liveIDs.contains($0.key) }
+        lastProgressPosition = lastProgressPosition.filter { liveIDs.contains($0.key) }
     }
     private func applyTimedSpells() {
         var pending: [(Team, Double, Double, String)] = []
@@ -749,19 +784,60 @@ final class BattleModel: ObservableObject {
         guard entities.count > 1 else { return }
         for i in 0..<(entities.count - 1) where entities[i].alive && !entities[i].tower {
             for j in (i + 1)..<entities.count where entities[j].alive && !entities[j].tower {
+                let firstFlying = CardCatalog.byID[entities[i].cardID]?.behavior.contains(.flying) == true
+                let secondFlying = CardCatalog.byID[entities[j].cardID]?.behavior.contains(.flying) == true
+                // Air and ground occupy separate collision layers.
+                guard firstFlying == secondFlying else { continue }
                 let dx = entities[j].x - entities[i].x
                 let dy = entities[j].y - entities[i].y
                 let d = hypot(dx, dy)
-                if d > 0.001 && d < 0.62 {
-                    let push = (0.62 - d) * 0.22
-                    entities[i].x = min(17.5, max(0.5, entities[i].x - dx / d * push))
-                    entities[i].y = min(31.5, max(0.5, entities[i].y - dy / d * push))
-                    entities[j].x = min(17.5, max(0.5, entities[j].x + dx / d * push))
-                    entities[j].y = min(31.5, max(0.5, entities[j].y + dy / d * push))
-                }
+                guard d < 0.62 else { continue }
+                let nx = d > 0.001 ? dx / d : (entities[i].id < entities[j].id ? 1.0 : -1.0)
+                let ny = d > 0.001 ? dy / d : 0.0
+                let overlap = 0.62 - d
+                // Mass grows with the square root of HP: heavy units yield less and push lighter units.
+                let massA = max(0.65, sqrt(max(1, entities[i].maxHP) / 180.0))
+                let massB = max(0.65, sqrt(max(1, entities[j].maxHP) / 180.0))
+                let shareA = massB / (massA + massB)
+                let shareB = massA / (massA + massB)
+                let correction = overlap * 0.72
+                entities[i].x = min(17.5, max(0.5, entities[i].x - nx * correction * shareA))
+                entities[i].y = min(31.5, max(0.5, entities[i].y - ny * correction * shareA))
+                entities[j].x = min(17.5, max(0.5, entities[j].x + nx * correction * shareB))
+                entities[j].y = min(31.5, max(0.5, entities[j].y + ny * correction * shareB))
             }
         }
     }
+    private func lockedTargetIndex(for entity: BattleEntity, range: Double) -> Int? {
+        if let lockedID = lockedTargetIDs[entity.id],
+           let index = entities.firstIndex(where: { $0.id == lockedID }),
+           isValidTarget(entities[index], for: entity, range: range) {
+            targetLockRemaining[entity.id] = max(0, (targetLockRemaining[entity.id] ?? 0) - Balance.tick)
+            return index
+        }
+        lockedTargetIDs.removeValue(forKey: entity.id)
+        targetLockRemaining.removeValue(forKey: entity.id)
+        guard let candidate = nearestTarget(from: entity, range: range) else { return nil }
+        lockedTargetIDs[entity.id] = entities[candidate].id
+        targetLockRemaining[entity.id] = 0.4
+        return candidate
+    }
+
+    private func isValidTarget(_ target: BattleEntity, for source: BattleEntity, range: Double) -> Bool {
+        guard target.alive, target.team != source.team, target.id != source.id,
+              !(source.tower && target.tower),
+              hypot(target.x - source.x, target.y - source.y) <= range else { return false }
+        let sourceCard = CardCatalog.byID[source.cardID]
+        if let targetCard = CardCatalog.byID[target.cardID], targetCard.behavior.contains(.invisible), !target.hasAttacked { return false }
+        if sourceCard?.kind == .troop, sourceCard?.behavior.contains(.buildingTarget) == true {
+            guard target.tower || CardCatalog.byID[target.cardID]?.kind == .building else { return false }
+        }
+        if let targetCard = CardCatalog.byID[target.cardID], targetCard.behavior.contains(.flying) {
+            return source.tower || sourceCard?.targetsAir == true
+        }
+        return true
+    }
+
     private func nearestTarget(from entity: BattleEntity, range: Double) -> Int? {
         let sourceCard = CardCatalog.byID[entity.cardID]
         return entities.indices.filter { i in
@@ -805,13 +881,28 @@ final class BattleModel: ObservableObject {
         guard let target else { return (entity.x, entity.y) }
         let flying = CardCatalog.byID[entity.cardID]?.behavior.contains(.flying) == true
         guard !flying else { return (target.x, target.y) }
-        let onFriendlyHalf = entity.team == .blue ? entity.y < 16.8 : entity.y > 15.2
-        let targetOnEnemyHalf = entity.team == .blue ? target.y > 16.8 : target.y < 15.2
-        if onFriendlyHalf && targetOnEnemyHalf {
-            let bridgeX = abs(target.x - 9) < 0.25 ? (entity.x < 9 ? 3.2 : 14.8) : (target.x < 9 ? 3.2 : 14.8)
-            return (bridgeX, entity.team == .blue ? 16.8 : 15.2)
+
+        let startCell = ArenaNavigation.cell(x: entity.x, y: entity.y)
+        let targetCell = ArenaNavigation.cell(x: target.x, y: target.y)
+        var cached = navigationPaths[entity.id]
+        if cached == nil || cached?.targetID != target.id || cached?.targetCell != targetCell ||
+            cached?.navigationRevision != navigationRevision || cached?.cells.isEmpty == true {
+            var blocked = Set<ArenaCell>()
+            for obstacle in entities where obstacle.alive && obstacle.id != target.id &&
+                (obstacle.tower || CardCatalog.byID[obstacle.cardID]?.kind == .building) {
+                blocked.insert(ArenaNavigation.cell(x: obstacle.x, y: obstacle.y))
+            }
+            let cells = ArenaNavigation.path(from: startCell, to: targetCell, blocked: blocked)
+            cached = CachedArenaPath(targetID: target.id, targetCell: targetCell,
+                                     navigationRevision: navigationRevision, cells: cells, cursor: min(1, max(0, cells.count - 1)))
         }
-        return (target.x, target.y)
+        guard var path = cached, !path.cells.isEmpty else { return (target.x, target.y) }
+        // Advance the cached cursor as the unit enters successive grid cells.
+        while path.cursor < path.cells.count - 1 && startCell == path.cells[path.cursor] { path.cursor += 1 }
+        navigationPaths[entity.id] = path
+        let waypoint = path.cells[min(path.cursor, path.cells.count - 1)]
+        if waypoint == targetCell { return (target.x, target.y) }
+        return (Double(waypoint.x) + 0.5, Double(waypoint.y) + 0.5)
     }
     private func resolveTowers() {
         if entities.contains(where: { $0.tower && $0.king && $0.team == .blue && !$0.alive }) { redCrowns = 3; finish("DEFEAT") }
