@@ -64,7 +64,7 @@ final class VisualProofTests: XCTestCase {
     private func addName(_ name: String, x: CGFloat, y: CGFloat, to scene: ArenaScene) {
         let label = SKLabelNode(text: name)
         label.fontName = "AvenirNext-DemiBold"
-        label.fontSize = 5.8
+        label.fontSize = 5.0
         label.fontColor = .white.withAlphaComponent(0.92)
         label.horizontalAlignmentMode = .center
         label.position = CGPoint(x: x, y: y)
@@ -85,8 +85,8 @@ final class VisualProofTests: XCTestCase {
         for (index, card) in CardCatalog.all.enumerated() {
             let row = index / 7
             let column = index % 7
-            let x = 2.0 + Double(column) * 2.2
-            let y = 1.7 + Double(row) * 2.2
+            let x = 1.7 + Double(column) * 2.3
+            let y = 1.6 + Double(row) * 2.25
             scene.proofAddCardSprite(card, team: team, x: x, y: y)
             addName(card.name, x: CGFloat(x) * (boardSize.width / 18),
                     y: CGFloat(y) * (boardSize.height / 32) - 22, to: scene)
