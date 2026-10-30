@@ -169,7 +169,7 @@ final class ArenaScene: SKScene {
                     // Troops/buildings receive a short readable death animation instead of vanishing.
                     node.run(.sequence([
                         .group([.scale(to: 0.18, duration: 0.24), .fadeOut(withDuration: 0.24),
-                                .rotate(byAngle: entityNodes[id] == nil ? 0 : 0.35, duration: 0.24)]),
+                                .rotate(byAngle: 0.35, duration: 0.24)]),
                         .removeFromParent()
                     ]), withKey: "unit-death")
                 } else { node.removeFromParent() }
@@ -289,7 +289,7 @@ final class ArenaScene: SKScene {
         layer.name = "navigation-debug-overlay"
         layer.zPosition = 900
         for item in model.debugOverlayItems() {
-            let origin = CGPoint(x: item.x * Double(tileWidth), y: item.y * Double(tileHeight))
+            let origin = CGPoint(x: CGFloat(item.x) * tileWidth, y: CGFloat(item.y) * tileHeight)
             if item.aggroRange > 0 {
                 let aggro = SKShapeNode(circleOfRadius: CGFloat(item.aggroRange) * tileWidth)
                 aggro.position = origin; aggro.fillColor = UIColor.systemCyan.withAlphaComponent(0.035)
@@ -318,10 +318,10 @@ final class ArenaScene: SKScene {
             if let tx = item.targetX, let ty = item.targetY {
                 let linePath = CGMutablePath()
                 linePath.move(to: origin)
-                linePath.addLine(to: CGPoint(x: tx * Double(tileWidth), y: ty * Double(tileHeight)))
+                linePath.addLine(to: CGPoint(x: CGFloat(tx) * tileWidth, y: CGFloat(ty) * tileHeight))
                 let line = SKShapeNode(path: linePath)
                 line.strokeColor = UIColor.systemPink.withAlphaComponent(0.8)
-                line.lineWidth = 1.1; line.dashPattern = [4, 3]
+                line.lineWidth = 1.1; line.lineDashPattern = [NSNumber(value: 4), NSNumber(value: 3)]
                 layer.addChild(line)
             }
         }
