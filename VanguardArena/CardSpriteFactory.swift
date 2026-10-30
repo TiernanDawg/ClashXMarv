@@ -60,8 +60,8 @@ enum CardSpriteFactory {
 
         // The oval team badge remains visible at tiny in-game scale; flyers hover above it.
         let badge = ellipse(CGRect(x: -w * 0.43, y: -h * 0.48, width: w * 0.86, height: h * 0.20),
-                            teamColor.withAlphaComponent(0.92), .white, 1.4, z: -8)
-        badge.glowWidth = 1.2
+                            teamColor.withAlphaComponent(0.92), teamColor, 1.1, z: -8)
+        badge.glowWidth = 0
         if flying {
             badge.xScale = 0.72
             let shadow = ellipse(CGRect(x: -w * 0.30, y: -h * 0.65, width: w * 0.60, height: h * 0.14),
