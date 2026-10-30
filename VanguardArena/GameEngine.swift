@@ -950,7 +950,8 @@ final class BattleModel: ObservableObject {
         let lane = entity.x < 9 ? "left" : "right"
         let preferredLaneX = lane == "left" ? 3.2 : 14.8
         let lanePrincessFallen = fallenTowerKeys.contains("\(opponent.rawValue)-\(lane)")
-        let buildingOnly = CardCatalog.byID[entity.cardID]?.behavior.contains(.buildingTarget) == true
+        let sourceCard = CardCatalog.byID[entity.cardID]
+        let buildingOnly = sourceCard?.behavior.contains(.buildingTarget) == true
 
         if lanePrincessFallen {
             // In a broken lane, pursue the nearest valid enemy troop first; building-target
@@ -958,7 +959,9 @@ final class BattleModel: ObservableObject {
             if !buildingOnly,
                let nearestTroop = entities.filter({
                    $0.alive && $0.team == opponent && !$0.tower &&
-                   CardCatalog.byID[$0.cardID]?.kind == .troop
+                   CardCatalog.byID[$0.cardID]?.kind == .troop &&
+                   !(CardCatalog.byID[$0.cardID]?.behavior.contains(.invisible) == true && !$0.hasAttacked) &&
+                   (CardCatalog.byID[$0.cardID]?.behavior.contains(.flying) != true || sourceCard?.targetsAir == true)
                }).min(by: {
                    hypot($0.x - entity.x, $0.y - entity.y) < hypot($1.x - entity.x, $1.y - entity.y)
                }) {
