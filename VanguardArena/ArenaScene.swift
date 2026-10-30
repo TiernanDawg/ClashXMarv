@@ -266,7 +266,12 @@ final class ArenaScene: SKScene {
                             smoke.run(.repeatForever(.sequence([
                                 .group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.10, y: tileHeight * 0.42, duration: 0.65),
                                         .scale(to: 1.9, duration: 0.65), .fadeOut(withDuration: 0.65)]),
-                                .run { smoke.position.y = tileHeight * 0.72; smoke.alpha = 0.72; smoke.setScale(0.65) }
+                                .run { [weak self, weak smoke] in
+                                    guard let self, let smoke else { return }
+                                    smoke.position.y = self.tileHeight * 0.72
+                                    smoke.alpha = 0.72
+                                    smoke.setScale(0.65)
+                                }
                             ])))
                         }
                         if ratio <= 0.12 {
