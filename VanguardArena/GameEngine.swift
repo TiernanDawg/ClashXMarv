@@ -231,6 +231,7 @@ final class BattleModel: ObservableObject {
         cardLevels = snapshot.cardLevels
         botLevel = snapshot.botLevel
         isPractice = false
+        practiceScenario = .standard
         trophyBand = snapshot.trophyBand
         replayActions = []
         isReplaying = false
