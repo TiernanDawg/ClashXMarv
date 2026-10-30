@@ -290,19 +290,13 @@ final class ArenaScene: SKScene {
         }
         // Tower lock indicators stay attached to the actual target and are reused.
         var activeLockTargets = Set<Int>()
-        for item in model.debugOverlayItems() where model.entities.first(where: { $0.id == Int(item.x * 0) }) == nil {
-            _ = item
-        }
-        for item in model.debugOverlayItems() where item.targetID != nil {
-            guard let targetID = item.targetID,
-                  let source = model.entities.first(where: { $0.id != targetID && $0.tower && abs($0.x - item.x) < 0.01 && abs($0.y - item.y) < 0.01 }),
-                  let targetNode = entityNodes[targetID] else { continue }
-            _ = source
+        for item in model.debugOverlayItems() where item.isTower {
+            guard let targetID = item.targetID, let targetNode = entityNodes[targetID] else { continue }
             activeLockTargets.insert(targetID)
             if targetNode.childNode(withName: "target-lock") == nil {
                 let ring = SKShapeNode(circleOfRadius: tileWidth * 0.72)
                 ring.name = "target-lock"; ring.fillColor = .clear
-                ring.strokeColor = sourceTeamColor(for: item, model: model).withAlphaComponent(0.95)
+                ring.strokeColor = (item.team == .blue ? UIColor.systemBlue : UIColor.systemRed).withAlphaComponent(0.98)
                 ring.lineWidth = 1.8; ring.glowWidth = 2; ring.zPosition = 30
                 targetNode.addChild(ring)
                 ring.run(.repeatForever(.sequence([.scale(to: 1.14, duration: 0.32), .scale(to: 0.92, duration: 0.32)])))
@@ -358,11 +352,6 @@ final class ArenaScene: SKScene {
             ghost?.isHidden = true
             gridPreview?.isHidden = true
         }
-    }
-
-    private func sourceTeamColor(for item: ArenaDebugItem, model: BattleModel) -> UIColor {
-        let source = model.entities.first { $0.tower && abs($0.x - item.x) < 0.01 && abs($0.y - item.y) < 0.01 }
-        return source?.team == .blue ? .systemBlue : .systemRed
     }
 
     private func addTowerDestructionEffect(_ event: BattleEvent) {
