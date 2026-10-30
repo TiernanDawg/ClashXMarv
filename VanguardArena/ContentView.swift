@@ -614,15 +614,19 @@ struct RootView: View {
                         HStack(spacing: 3) {
                             Text("RIVAL").font(.system(size: 8, weight: .black))
                             ForEach(0..<3, id: \.self) { crown in
-                                Image(systemName: "crown.fill").font(.system(size: 9, weight: .black))
-                                    .foregroundStyle(crown < (battle?.redCrowns ?? 0) ? gold : Color.white.opacity(0.18))
+                                Image(systemName: "crown.fill").font(.system(size: 10, weight: .black))
+                                    .foregroundStyle(crown < (battle?.redCrowns ?? 0) ? Color(red: 1.0, green: 0.24, blue: 0.29) : Color.white.opacity(0.18))
+                                    .scaleEffect(crown < (battle?.redCrowns ?? 0) ? 1.12 : 0.86)
+                                    .animation(.spring(response: 0.28, dampingFraction: 0.55), value: battle?.redCrowns ?? 0)
                             }
                         }
                         Text("VS").font(.system(size: 8, weight: .black)).foregroundStyle(.white.opacity(0.45))
                         HStack(spacing: 3) {
                             ForEach(0..<3, id: \.self) { crown in
-                                Image(systemName: "crown.fill").font(.system(size: 9, weight: .black))
-                                    .foregroundStyle(crown < (battle?.blueCrowns ?? 0) ? gold : Color.white.opacity(0.18))
+                                Image(systemName: "crown.fill").font(.system(size: 10, weight: .black))
+                                    .foregroundStyle(crown < (battle?.blueCrowns ?? 0) ? Color(red: 0.20, green: 0.61, blue: 1.0) : Color.white.opacity(0.18))
+                                    .scaleEffect(crown < (battle?.blueCrowns ?? 0) ? 1.12 : 0.86)
+                                    .animation(.spring(response: 0.28, dampingFraction: 0.55), value: battle?.blueCrowns ?? 0)
                             }
                             Text("YOU").font(.system(size: 8, weight: .black))
                         }
@@ -647,8 +651,17 @@ struct RootView: View {
                         .onAppear { arenaRect = proxy.frame(in: .named("battle")) }
                         .onChange(of: proxy.size) { _ in arenaRect = proxy.frame(in: .named("battle")) }
                 }.frame(height: 440).clipShape(RoundedRectangle(cornerRadius: 18)).padding(.horizontal, 8)
-                HStack(spacing: 6) {
-                    ForEach(0..<10, id: \.self) { i in Capsule().fill(Double(i) < battle.blueElixir ? Color.purple : .white.opacity(0.10)).frame(height: 8) }
+                HStack(spacing: 8) {
+                    GeometryReader { bar in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.white.opacity(0.10))
+                            Capsule().fill(LinearGradient(colors: [Color(red: 0.62, green: 0.31, blue: 0.96), Color(red: 0.91, green: 0.60, blue: 1.0)], startPoint: .leading, endPoint: .trailing))
+                                .frame(width: bar.size.width * CGFloat(min(1, max(0, battle.blueElixir / 10))))
+                                .shadow(color: .purple.opacity(battle.blueElixir >= 10 ? 0.8 : 0.25), radius: battle.blueElixir >= 10 ? 7 : 2)
+                        }
+                    }.frame(height: 9)
+                        .scaleEffect(battle.blueElixir >= 10 ? 1.025 : 1)
+                        .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true), value: battle.blueElixir >= 10)
                     Text(String(format: "%.1f", battle.blueElixir)).font(.caption.bold().monospacedDigit()).frame(width: 30)
                 }.padding(.horizontal, 12)
                 HStack(spacing: 7) {
