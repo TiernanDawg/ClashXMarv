@@ -779,6 +779,57 @@ final class ArenaScene: SKScene {
         return root
     }
 
+    // Deterministic visual-proof hooks used only by the simulator's XCTest renderer.
+    func proofPrepareContactSheet() {
+        removeAllChildren()
+        backgroundColor = UIColor(red: 0.075, green: 0.09, blue: 0.14, alpha: 1)
+    }
+
+    func proofAddCardSprite(_ card: CardDefinition, team: Team, x: Double, y: Double) {
+        let hp = max(100, card.hp)
+        let entity = BattleEntity(id: Int(x * 100 + y), cardID: card.id, team: team,
+                                  x: x, y: y, hp: hp, maxHP: hp)
+        let node = makeNode(entity)
+        node.removeAction(forKey: "deploy-pop")
+        node.setScale(1)
+        node.position = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
+        addChild(node)
+    }
+
+    func proofAddAttack(style: String, sourceID: Int, from: CGPoint, to: CGPoint) {
+        addAttackEffect(BattleEvent(x: Double(to.x), y: Double(to.y), text: "PROOF",
+                                    born: 0, sourceX: Double(from.x), sourceY: Double(from.y),
+                                    sourceID: sourceID, style: style), style: style)
+    }
+
+    func proofAddSpell(style: String, x: Double, y: Double, radius: Double) {
+        addSpellEffect(BattleEvent(x: x, y: y, text: "SPELL", born: 0,
+                                   style: style, effectRadius: radius), style: style)
+    }
+
+    func proofAddTowerDestruction(x: Double, y: Double, destroyedTeam: Team) {
+        addTowerDestructionEffect(BattleEvent(x: x, y: y, text: "TOWER DESTROYED",
+                                              born: 0, style: "tower-destroyed", team: destroyedTeam))
+    }
+
+    func proofAddCrownTracker(blue: Int, red: Int) {
+        func crown(_ x: CGFloat, _ y: CGFloat, _ color: UIColor, _ filled: Bool) {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: -9, y: -5)); path.addLine(to: CGPoint(x: -7, y: 7))
+            path.addLine(to: CGPoint(x: -3, y: 1)); path.addLine(to: CGPoint(x: 0, y: 9))
+            path.addLine(to: CGPoint(x: 3, y: 1)); path.addLine(to: CGPoint(x: 7, y: 7))
+            path.addLine(to: CGPoint(x: 9, y: -5)); path.closeSubpath()
+            let shape = SKShapeNode(path: path); shape.position = CGPoint(x: x, y: y)
+            shape.fillColor = filled ? color : UIColor.white.withAlphaComponent(0.12)
+            shape.strokeColor = color; shape.lineWidth = 1.4; shape.zPosition = 1000
+            addChild(shape)
+        }
+        for i in 0..<3 {
+            crown(size.width * 0.5 - 28 + CGFloat(i) * 24, size.height - 22, .systemBlue, i < blue)
+            crown(size.width * 0.5 + 52 + CGFloat(i) * 24, size.height - 22, .systemRed, i < red)
+        }
+    }
+
     private func boardPoint(_ point: CGPoint) -> (Double, Double) {
         (min(17.5, max(0.5, Double(point.x / tileWidth))),
          min(31.5, max(0.5, Double(point.y / tileHeight))))
