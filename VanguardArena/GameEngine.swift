@@ -98,6 +98,7 @@ struct BattleEvent: Identifiable {
     var sourceID: Int? = nil
     var style: String? = nil
     var effectRadius: Double? = nil
+    var team: Team? = nil
 }
 struct ArenaDebugItem {
     let entityID: Int
