@@ -86,6 +86,26 @@ struct GameSettings: Codable {
     var reduceMotion = false
     var highContrast = false
     var largeText = false
+    var navigationDebug = false
+
+    private enum CodingKeys: String, CodingKey {
+        case sound, music, haptics, damageNumbers, leftHanded, muteOpponentEmotes
+        case reduceMotion, highContrast, largeText, navigationDebug
+    }
+    init() {}
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        sound = try values.decodeIfPresent(Bool.self, forKey: .sound) ?? true
+        music = try values.decodeIfPresent(Bool.self, forKey: .music) ?? true
+        haptics = try values.decodeIfPresent(Bool.self, forKey: .haptics) ?? true
+        damageNumbers = try values.decodeIfPresent(Bool.self, forKey: .damageNumbers) ?? true
+        leftHanded = try values.decodeIfPresent(Bool.self, forKey: .leftHanded) ?? false
+        muteOpponentEmotes = try values.decodeIfPresent(Bool.self, forKey: .muteOpponentEmotes) ?? false
+        reduceMotion = try values.decodeIfPresent(Bool.self, forKey: .reduceMotion) ?? false
+        highContrast = try values.decodeIfPresent(Bool.self, forKey: .highContrast) ?? false
+        largeText = try values.decodeIfPresent(Bool.self, forKey: .largeText) ?? false
+        navigationDebug = try values.decodeIfPresent(Bool.self, forKey: .navigationDebug) ?? false
+    }
 }
 @MainActor
 final class ProfileStore: ObservableObject {
