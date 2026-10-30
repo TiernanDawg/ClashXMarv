@@ -164,7 +164,7 @@ final class BattleModel: ObservableObject {
     private var navigationPaths: [Int: CachedArenaPath] = [:]
     private var stalledFor: [Int: Double] = [:]
     private var lastProgressPosition: [Int: (Double, Double)] = [:]
-    private var navigationRevision = 0
+    private var navigationRevision = 0\n    private var pathRepathCountByUnit: [Int: Int] = [:]
     private var lastBlueCard: String?
     private var lastRedCard: String?
     var isFinished: Bool { result != nil }
@@ -790,6 +790,10 @@ final class BattleModel: ObservableObject {
             lastDamageEventTime[id] = elapsed
         }
     }
+    func debugLockedTargetID(for unitID: Int) -> Int? { lockedTargetIDs[unitID] }
+    func debugStuckTime(for unitID: Int) -> Double { stalledFor[unitID] ?? 0 }
+    func debugPathRepathCount(for unitID: Int) -> Int { pathRepathCountByUnit[unitID] ?? 0 }
+
     func debugOverlayItems() -> [ArenaDebugItem] {
         entities.filter(\.alive).compactMap { entity in
             let card = CardCatalog.byID[entity.cardID]
@@ -931,17 +935,17 @@ final class BattleModel: ObservableObject {
         let targetCell = ArenaNavigation.cell(x: target.x, y: target.y)
         var cached = navigationPaths[entity.id]
         if cached == nil || cached?.targetID != target.id || cached?.targetCell != targetCell ||
-            cached?.navigationRevision != navigationRevision || cached?.cells.isEmpty == true {
+            cached?.navigationRevision != navigationRevision {
             var blocked = Set<ArenaCell>()
             for obstacle in entities where obstacle.alive && obstacle.id != target.id &&
                 (obstacle.tower || CardCatalog.byID[obstacle.cardID]?.kind == .building) {
                 blocked.insert(ArenaNavigation.cell(x: obstacle.x, y: obstacle.y))
             }
-            let cells = ArenaNavigation.path(from: startCell, to: targetCell, blocked: blocked)
+            let cells = ArenaNavigation.path(from: startCell, to: targetCell, blocked: blocked)\n            pathRepathCountByUnit[entity.id, default: 0] += 1
             cached = CachedArenaPath(targetID: target.id, targetCell: targetCell,
                                      navigationRevision: navigationRevision, cells: cells, cursor: min(1, max(0, cells.count - 1)))
         }
-        guard var path = cached, !path.cells.isEmpty else { return (target.x, target.y) }
+        guard var path = cached, !path.cells.isEmpty else { return (entity.x, entity.y) }
         // Advance the cached cursor as the unit enters successive grid cells.
         while path.cursor < path.cells.count - 1 && startCell == path.cells[path.cursor] { path.cursor += 1 }
         navigationPaths[entity.id] = path
