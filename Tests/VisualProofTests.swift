@@ -158,9 +158,10 @@ final class VisualProofTests: XCTestCase {
         var palettes: [(CGFloat, CGFloat, CGFloat)] = []
         for index in CardCatalog.all.indices {
             let row = index / columns, column = index % columns
+            let pixelRow = (height / cellHeight - 1) - row
             var mask: [Bool] = []
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, count: CGFloat = 0
-            for y in (row * cellHeight)..<min(height, (row + 1) * cellHeight) {
+            for y in (pixelRow * cellHeight)..<min(height, (pixelRow + 1) * cellHeight) {
                 for x in (column * cellWidth)..<min(width, (column + 1) * cellWidth) {
                     let offset = y * bytesPerRow + x * 4
                     let r = CGFloat(pixels[offset]) / 255
