@@ -80,6 +80,53 @@ enum CardSpriteFactory {
             return node
         }
 
+        func addUniqueSignature() {
+            // Encode the full 0...90 card index into a readable crest: 13 heights × 7 widths.
+            let row = index % 13
+            let band = index / 13
+            let crestHeight = h * (0.22 + CGFloat(row) * 0.034)
+            let crestWidth = w * (0.18 + CGFloat(band) * 0.10)
+            let baseY = h * 0.34
+            let color = band.isMultiple(of: 2) ? trim : coat
+            switch index % 4 {
+            case 0:
+                shape([CGPoint(x:-crestWidth*0.16,y:baseY),CGPoint(x:crestWidth*0.04,y:baseY+crestHeight*0.48),
+                       CGPoint(x:crestWidth*0.48,y:baseY+crestHeight),CGPoint(x:crestWidth*0.32,y:baseY+crestHeight*0.34)],
+                      color, outline, 1.9).zPosition = 9
+            case 1:
+                for side in [-1.0,1.0] {
+                    shape([CGPoint(x:CGFloat(side)*crestWidth*0.10,y:baseY),
+                           CGPoint(x:CGFloat(side)*crestWidth*0.56,y:baseY+crestHeight*0.92),
+                           CGPoint(x:CGFloat(side)*crestWidth*0.26,y:baseY+crestHeight*0.42)],
+                          color, outline, 1.9).zPosition = 9
+                }
+            case 2:
+                shape([CGPoint(x:-crestWidth*0.52,y:baseY),CGPoint(x:-crestWidth*0.42,y:baseY+crestHeight*0.55),
+                       CGPoint(x:-crestWidth*0.18,y:baseY+crestHeight*0.32),CGPoint(x:0,y:baseY+crestHeight),
+                       CGPoint(x:crestWidth*0.18,y:baseY+crestHeight*0.32),CGPoint(x:crestWidth*0.42,y:baseY+crestHeight*0.55),
+                       CGPoint(x:crestWidth*0.52,y:baseY)], color, outline, 1.9).zPosition = 9
+            default:
+                rect(CGRect(x:-w*0.045,y:baseY,width:w*0.09,height:crestHeight*0.78),w*0.03,color,outline,1.6,z:9)
+                ellipse(CGRect(x:-crestWidth*0.18,y:baseY+crestHeight*0.65,width:crestWidth*0.36,height:crestWidth*0.36),
+                        .systemCyan,outline,1.4,z:10)
+            }
+        }
+
+        func addSpellSignature() {
+            // Outward rays vary in count and reach, changing the icon's actual contour.
+            let rayCount = 3 + (index % 7)
+            let radius = w * (0.34 + CGFloat(index / 13) * 0.025)
+            let length = h * (0.12 + CGFloat(index % 13) * 0.018)
+            for ray in 0..<rayCount {
+                let angle = CGFloat(ray) * (.pi * 2 / CGFloat(rayCount))
+                let inner = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+                let outer = CGPoint(x: cos(angle) * (radius + length), y: sin(angle) * (radius + length))
+                let tangent = CGPoint(x: -sin(angle) * w * 0.055, y: cos(angle) * w * 0.055)
+                shape([CGPoint(x:inner.x-tangent.x,y:inner.y-tangent.y),outer,
+                       CGPoint(x:inner.x+tangent.x,y:inner.y+tangent.y)],trim,outline,1.5).zPosition = 8
+            }
+        }
+
         // The oval team badge remains visible at tiny in-game scale; flyers hover above it.
         let badge = ellipse(CGRect(x: -w * 0.43, y: -h * 0.48, width: w * 0.86, height: h * 0.20),
                             teamColor.withAlphaComponent(0.92), teamColor, 1.1, z: -8)
@@ -162,6 +209,7 @@ enum CardSpriteFactory {
                        CGPoint(x:-w*0.18,y:-h*0.42),CGPoint(x:-w*0.36,y:h*0.08)], trim, outline, 2.4)
                 ellipse(CGRect(x:-w*0.10,y:-h*0.08,width:w*0.20,height:h*0.20), .systemCyan, .white, 1.2)
             }
+            addSpellSignature()
             return root
         }
 
@@ -211,6 +259,7 @@ enum CardSpriteFactory {
             let barrel = SKShapeNode(rectOf: CGSize(width:w*0.10,height:h*0.36),cornerRadius:w*0.04)
             barrel.position = CGPoint(x:w*0.02,y:h*0.14); barrel.fillColor = .lightGray; barrel.strokeColor = outline
             barrel.lineWidth = 1.8; turret.addChild(barrel)
+            addUniqueSignature()
             return root
         }
 
@@ -256,6 +305,7 @@ enum CardSpriteFactory {
                 foot.fillColor = trim; foot.strokeColor = outline; foot.lineWidth = 1.4
                 leg.addChild(foot); root.addChild(leg)
             }
+            addUniqueSignature()
             return root
         }
 
@@ -292,6 +342,8 @@ enum CardSpriteFactory {
         if let body = root.childNode(withName: "body") {
             body.run(.repeatForever(.sequence([.scaleY(to: 0.96, duration: 0.38), .scaleY(to: 1.02, duration: 0.38)])), withKey: "idle-breathe")
         }
+        addUniqueSignature()
+
         // A second silhouette layer gives every roster entry a distinct outline at thumbnail scale.
         switch index % 12 {
         case 0:
