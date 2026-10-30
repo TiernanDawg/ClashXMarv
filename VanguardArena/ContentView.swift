@@ -361,7 +361,7 @@ struct RootView: View {
                     settingToggle("Mute rival emotes", keyPath: \.muteOpponentEmotes)
                     settingToggle("Reduce motion", keyPath: \.reduceMotion)
                     settingToggle("High contrast", keyPath: \.highContrast)
-                    settingToggle("Large text", keyPath: \.largeText)
+                    settingToggle("Large text", keyPath: \.largeText)\n                    settingToggle("Navigation debug overlay", keyPath: \.navigationDebug)
                 }
                 Section("Progress") {
                     Button("Open Daily Supply") { screen = .shop }
