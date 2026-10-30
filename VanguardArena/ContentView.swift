@@ -17,7 +17,7 @@ struct RootView: View {
     private var battle: BattleModel? { battleHolder.model }
     private var dailyChallengeWins: Int {
         guard let date = profile.profile.meta?.challengeDate, Calendar.current.isDateInToday(date) else { return 0 }
-        return dailyChallengeWins
+        return min(2, profile.profile.meta?.challengeWins ?? 0)
     }
     @State private var scene = ArenaScene(size: CGSize(width: 360, height: 640))
     @State private var detail: CardDefinition?
