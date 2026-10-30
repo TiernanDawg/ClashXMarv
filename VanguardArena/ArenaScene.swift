@@ -9,7 +9,7 @@ final class ArenaScene: SKScene {
     var hapticsEnabled = true
     var themeIndex = 0
     var debugNavigation = false
-    private var debugLayer: SKNode?
+    private var debugLayer: SKNode?\n    private var renderedEventIDs = Set<UUID>()
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
     private var lastAttackClock: [Int: Double] = [:]
@@ -248,7 +248,10 @@ final class ArenaScene: SKScene {
                 if entity.tower { body.fillColor = entity.king ? .systemYellow : (entity.team == .blue ? .systemTeal : .systemPink) }
             }
         }
-        for event in model.events where model.elapsed - event.born < (event.style == "tower-destroyed" ? 1.25 : 0.4) && (showDamageNumbers || !event.text.hasPrefix("−")) {
+        for event in model.events {
+            guard model.elapsed - event.born < (event.style == "tower-destroyed" ? 1.25 : 0.4),
+                  showDamageNumbers || !event.text.hasPrefix("−"),
+                  renderedEventIDs.insert(event.id).inserted else { continue }
             let name = "event-\(event.id)"
             if childNode(withName: name) == nil {
                 if let style = event.style, ["melee", "projectile", "beam"].contains(style) {
