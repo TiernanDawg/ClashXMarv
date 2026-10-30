@@ -98,6 +98,16 @@ struct BattleEvent: Identifiable {
     var sourceID: Int? = nil
     var style: String? = nil
 }
+struct ArenaDebugItem {
+    let x: Double
+    let y: Double
+    let path: [ArenaCell]
+    let targetX: Double?
+    let targetY: Double?
+    let aggroRange: Double
+    let attackRange: Double
+}
+
 @MainActor
 final class BattleModel: ObservableObject {
     @Published private(set) var entities: [BattleEntity] = []
@@ -780,6 +790,25 @@ final class BattleModel: ObservableObject {
             lastDamageEventTime[id] = elapsed
         }
     }
+    func debugOverlayItems() -> [ArenaDebugItem] {
+        entities.filter(\.alive).compactMap { entity in
+            let card = CardCatalog.byID[entity.cardID]
+            let range = entity.tower
+                ? (entity.king ? Balance.kingTowerRange : Balance.princessTowerRange)
+                : (card?.range ?? 0)
+            let targetIndex = lockedTargetIDs[entity.id].flatMap { id in entities.firstIndex { $0.id == id } }
+                ?? nearestTarget(from: entity, range: entity.tower
+                    ? (entity.king ? Balance.kingTowerRange : Balance.princessTowerRange)
+                    : max(card?.range ?? 0, Balance.sightRange))
+            let target = targetIndex.map { entities[$0] }
+            return ArenaDebugItem(x: entity.x, y: entity.y,
+                                  path: navigationPaths[entity.id]?.cells ?? [],
+                                  targetX: target?.x, targetY: target?.y,
+                                  aggroRange: entity.tower ? range : Balance.sightRange,
+                                  attackRange: range)
+        }
+    }
+
     private func separateUnits() {
         guard entities.count > 1 else { return }
         for i in 0..<(entities.count - 1) where entities[i].alive && !entities[i].tower {
