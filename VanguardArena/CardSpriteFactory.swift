@@ -5,7 +5,19 @@ import UIKit
 /// silhouette family, headgear and weapon profile; team color is reserved for a readable
 /// base/trim accent so red and blue versions remain immediately identifiable.
 enum CardSpriteFactory {
+    // Scene creation is main-thread-only; cached vector prototypes avoid rebuilding
+    // every path, outline and accessory when the same card is deployed repeatedly.
+    private static var templates: [String: SKNode] = [:]
+
     static func make(card: CardDefinition, team: Team, size: CGSize) -> SKNode {
+        let key = "\(card.id)|\(team.rawValue)|\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+        if let template = templates[key], let copy = template.copy() as? SKNode { return copy }
+        let node = build(card: card, team: team, size: size)
+        if let prototype = node.copy() as? SKNode { templates[key] = prototype }
+        return node
+    }
+
+    private static func build(card: CardDefinition, team: Team, size: CGSize) -> SKNode {
         let root = SKNode()
         let index = CardCatalog.all.firstIndex(where: { $0.id == card.id }) ?? 0
         let hue = CGFloat((Double(index) * 0.61803398875).truncatingRemainder(dividingBy: 1))
