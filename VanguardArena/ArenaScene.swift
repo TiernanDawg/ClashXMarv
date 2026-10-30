@@ -248,6 +248,37 @@ final class ArenaScene: SKScene {
                 let ratio = max(0, min(1, entity.hp / max(1, entity.maxHP)))
                 badge.xScale = ratio
                 badge.fillColor = ratio > 0.5 ? .systemGreen : (ratio > 0.25 ? .systemYellow : .systemRed)
+                if entity.tower && ratio <= 0.25 {
+                    if node.childNode(withName: "tower-damage-fx") == nil {
+                        let fx = SKNode(); fx.name = "tower-damage-fx"; fx.zPosition = 18
+                        for index in 0..<4 {
+                            let smoke = SKShapeNode(circleOfRadius: max(2, tileWidth * 0.09))
+                            smoke.position = CGPoint(x: CGFloat(index - 2) * tileWidth * 0.16, y: tileHeight * (0.72 + CGFloat(index % 2) * 0.10))
+                            smoke.fillColor = UIColor(white: 0.24, alpha: 0.75); smoke.strokeColor = .clear
+                            fx.addChild(smoke)
+                            smoke.run(.repeatForever(.sequence([
+                                .group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.10, y: tileHeight * 0.42, duration: 0.65),
+                                        .scale(to: 1.9, duration: 0.65), .fadeOut(withDuration: 0.65)]),
+                                .run { smoke.position.y = tileHeight * 0.72; smoke.alpha = 0.72; smoke.setScale(0.65) }
+                            ])))
+                        }
+                        if ratio <= 0.12 {
+                            let flame = SKShapeNode(path: {
+                                let p = CGMutablePath(); p.move(to: CGPoint(x: -tileWidth*0.13,y:0))
+                                p.addQuadCurve(to: CGPoint(x: tileWidth*0.13,y:0), control: CGPoint(x: 0,y: tileHeight*0.56))
+                                p.addQuadCurve(to: CGPoint(x: -tileWidth*0.13,y:0), control: CGPoint(x: 0,y: tileHeight*0.22))
+                                return p
+                            }())
+                            flame.position = CGPoint(x: tileWidth * 0.24, y: tileHeight * 0.56)
+                            flame.fillColor = .systemOrange; flame.strokeColor = .systemYellow; flame.lineWidth = 1
+                            fx.addChild(flame)
+                            flame.run(.repeatForever(.sequence([.scale(to: 1.18, duration: 0.12), .scale(to: 0.88, duration: 0.12)])))
+                        }
+                        node.addChild(fx)
+                    }
+                } else {
+                    node.childNode(withName: "tower-damage-fx")?.removeFromParent()
+                }
             }
             if let body = node.childNode(withName: "body") as? SKShapeNode {
                 if entity.tower {
@@ -256,6 +287,29 @@ final class ArenaScene: SKScene {
                     body.fillColor = entity.team == .blue ? UIColor.systemCyan : UIColor.systemOrange
                 }
             }
+        }
+        // Tower lock indicators stay attached to the actual target and are reused.
+        var activeLockTargets = Set<Int>()
+        for item in model.debugOverlayItems() where model.entities.first(where: { $0.id == Int(item.x * 0) }) == nil {
+            _ = item
+        }
+        for item in model.debugOverlayItems() where item.targetID != nil {
+            guard let targetID = item.targetID,
+                  let source = model.entities.first(where: { $0.id != targetID && $0.tower && abs($0.x - item.x) < 0.01 && abs($0.y - item.y) < 0.01 }),
+                  let targetNode = entityNodes[targetID] else { continue }
+            _ = source
+            activeLockTargets.insert(targetID)
+            if targetNode.childNode(withName: "target-lock") == nil {
+                let ring = SKShapeNode(circleOfRadius: tileWidth * 0.72)
+                ring.name = "target-lock"; ring.fillColor = .clear
+                ring.strokeColor = sourceTeamColor(for: item, model: model).withAlphaComponent(0.95)
+                ring.lineWidth = 1.8; ring.glowWidth = 2; ring.zPosition = 30
+                targetNode.addChild(ring)
+                ring.run(.repeatForever(.sequence([.scale(to: 1.14, duration: 0.32), .scale(to: 0.92, duration: 0.32)])))
+            }
+        }
+        for (id, node) in entityNodes where !activeLockTargets.contains(id) {
+            node.childNode(withName: "target-lock")?.removeFromParent()
         }
         for event in model.events {
             guard model.elapsed - event.born < (event.style == "tower-destroyed" ? 1.25 : 0.4),
@@ -266,6 +320,7 @@ final class ArenaScene: SKScene {
                 if let style = event.style, ["melee", "projectile", "beam"].contains(style) {
                     addAttackEffect(event, style: style)
                 }
+                if event.style == "tower-destroyed" { addTowerDestructionEffect(event) }
                 if let style = event.style, style == "spell-telegraph" || style == "spell-impact" {
                     addSpellEffect(event, style: style)
                 }
@@ -275,11 +330,15 @@ final class ArenaScene: SKScene {
                     label.name = name
                     label.fontName = "AvenirNext-Heavy"
                     label.fontSize = event.style == "tower-destroyed" ? max(12, min(17, tileWidth * 0.78)) : max(8, min(12, tileWidth * 0.55))
-                    label.fontColor = event.style == "tower-destroyed" ? UIColor.systemYellow : .white
+                    label.fontColor = event.style == "tower-destroyed"
+                        ? (event.team == .blue ? UIColor.systemRed : UIColor.systemBlue) : .white
+                    if event.style == "tower-destroyed" { label.text = "TOWER DESTROYED" }
                     label.position = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight + tileHeight)
                     label.zPosition = 1000
                     addChild(label)
-                    if event.style == "tower-destroyed" { label.run(.sequence([.scale(to: 1.18, duration: 0.10), .scale(to: 1.0, duration: 0.10)])) }
+                    if event.style == "tower-destroyed" {
+                        label.run(.sequence([.scale(to: 1.35, duration: 0.12), .scale(to: 1.0, duration: 0.12)]))
+                    }
                     if reduceMotion { label.run(.sequence([.wait(forDuration: 0.25), .removeFromParent()])) }
                     else { label.run(.sequence([.group([.moveBy(x: 0, y: tileHeight * 1.15, duration: 0.65), .fadeOut(withDuration: 0.65)]), .removeFromParent()])) }
                 }
@@ -299,6 +358,60 @@ final class ArenaScene: SKScene {
             ghost?.isHidden = true
             gridPreview?.isHidden = true
         }
+    }
+
+    private func sourceTeamColor(for item: ArenaDebugItem, model: BattleModel) -> UIColor {
+        let source = model.entities.first { $0.tower && abs($0.x - item.x) < 0.01 && abs($0.y - item.y) < 0.01 }
+        return source?.team == .blue ? .systemBlue : .systemRed
+    }
+
+    private func addTowerDestructionEffect(_ event: BattleEvent) {
+        let point = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight)
+        let winnerColor: UIColor = event.team == .blue ? .systemRed : .systemBlue
+        let flash = SKShapeNode(circleOfRadius: tileWidth * 0.55)
+        flash.position = point; flash.fillColor = .white.withAlphaComponent(0.85)
+        flash.strokeColor = winnerColor; flash.lineWidth = 3; flash.glowWidth = 9; flash.zPosition = 960
+        addChild(flash)
+        flash.run(.sequence([.group([.scale(to: 4.2, duration: 0.34), .fadeOut(withDuration: 0.34)]), .removeFromParent()]))
+        for index in 0..<12 {
+            let angle = CGFloat(index) * (.pi * 2 / 12)
+            let shard = SKShapeNode(rectOf: CGSize(width: tileWidth * 0.16, height: tileHeight * 0.12), cornerRadius: 1)
+            shard.position = point; shard.fillColor = index.isMultiple(of: 2) ? .systemYellow : winnerColor
+            shard.strokeColor = UIColor.black.withAlphaComponent(0.5); shard.lineWidth = 0.8; shard.zPosition = 965
+            addChild(shard)
+            shard.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 1.65, y: sin(angle) * tileHeight * 1.65, duration: 0.42),
+                                         .rotate(byAngle: angle * 2, duration: 0.42), .fadeOut(withDuration: 0.42)]), .removeFromParent()]))
+        }
+        for index in 0..<5 {
+            let smoke = SKShapeNode(circleOfRadius: tileWidth * (0.15 + CGFloat(index) * 0.025))
+            smoke.position = point; smoke.fillColor = UIColor(white: 0.22, alpha: 0.48); smoke.strokeColor = .clear; smoke.zPosition = 955
+            addChild(smoke)
+            smoke.run(.sequence([.group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.26, y: tileHeight * CGFloat(1 + index % 2), duration: 0.55),
+                                         .scale(to: 2.4, duration: 0.55), .fadeOut(withDuration: 0.55)]), .removeFromParent()]))
+        }
+        let crownPath = CGMutablePath()
+        crownPath.move(to: CGPoint(x: -tileWidth*0.32, y: -tileHeight*0.18))
+        crownPath.addLine(to: CGPoint(x: -tileWidth*0.27, y: tileHeight*0.22))
+        crownPath.addLine(to: CGPoint(x: -tileWidth*0.08, y: tileHeight*0.03))
+        crownPath.addLine(to: CGPoint(x: 0, y: tileHeight*0.30))
+        crownPath.addLine(to: CGPoint(x: tileWidth*0.10, y: tileHeight*0.03))
+        crownPath.addLine(to: CGPoint(x: tileWidth*0.29, y: tileHeight*0.22))
+        crownPath.addLine(to: CGPoint(x: tileWidth*0.34, y: -tileHeight*0.18))
+        crownPath.closeSubpath()
+        let crown = SKShapeNode(path: crownPath)
+        crown.position = point; crown.fillColor = .systemYellow; crown.strokeColor = winnerColor
+        crown.lineWidth = 1.6; crown.glowWidth = 3; crown.zPosition = 980
+        addChild(crown)
+        crown.run(.sequence([.group([.move(to: CGPoint(x: size.width * 0.5, y: size.height - tileHeight * 0.7), duration: 0.72),
+                                     .scale(to: 0.45, duration: 0.72), .rotate(byAngle: .pi * 2, duration: 0.72)]),
+                            .fadeOut(withDuration: 0.16), .removeFromParent()]))
+        if !reduceMotion && !thermalLimited {
+            arenaCamera?.removeAction(forKey: "tower-destroy-shake")
+            arenaCamera?.run(.sequence([.moveBy(x: 8, y: -5, duration: 0.025), .moveBy(x: -16, y: 10, duration: 0.05),
+                                        .moveBy(x: 8, y: -5, duration: 0.025)]), withKey: "tower-destroy-shake")
+        }
+        speed = 0.55
+        run(.sequence([.wait(forDuration: 0.16), .run { [weak self] in self?.speed = 1 }]), withKey: "tower-slow-beat")
     }
 
     private func drawDebugOverlay(_ model: BattleModel) {
