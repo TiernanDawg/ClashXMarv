@@ -69,6 +69,7 @@ enum CardSpriteFactory {
             shadow.alpha = 0.7
         }
 
+        let cardShapeStartIndex = root.children.count
         if card.kind == .spell {
             if analog.contains("zap") || analog.contains("lightning") {
                 shape([CGPoint(x:-w*0.02,y:h*0.48),CGPoint(x:-w*0.30,y:h*0.02),CGPoint(x:-w*0.06,y:h*0.02),
@@ -183,7 +184,7 @@ enum CardSpriteFactory {
                 rect(base,w*0.09,.darkGray,outline,2.4)
                 rect(CGRect(x:-w*0.24,y:-h*0.16,width:w*0.48,height:h*0.48),w*0.08,.systemTeal,outline,2.2)
             }
-            root.children.first?.name = "body"
+            if root.children.indices.contains(cardShapeStartIndex) { root.children[cardShapeStartIndex].name = "body" }
             let turret = SKNode(); turret.name = "turret"; root.addChild(turret)
             let barrel = SKShapeNode(rectOf: CGSize(width:w*0.10,height:h*0.36),cornerRadius:w*0.04)
             barrel.position = CGPoint(x:w*0.02,y:h*0.14); barrel.fillColor = .lightGray; barrel.strokeColor = outline
