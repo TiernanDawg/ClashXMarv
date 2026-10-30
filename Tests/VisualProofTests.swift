@@ -113,6 +113,7 @@ final class VisualProofTests: XCTestCase {
         view.contentScaleFactor = 1
         view.ignoresSiblingOrder = true
         view.presentScene(scene)
+        var palettes: [(CGFloat, CGFloat, CGFloat)] = []
 
         for (index, card) in CardCatalog.all.enumerated() {
             let row = index / columns
@@ -120,6 +121,20 @@ final class VisualProofTests: XCTestCase {
             let sprite = CardSpriteFactory.make(card: card, team: .blue,
                 size: CGSize(width: boardSize.width / 18 * 1.15,
                              height: boardSize.height / 32 * 1.65))
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, count: CGFloat = 0
+            func collectPalette(_ node: SKNode) {
+                if let shape = node as? SKShapeNode {
+                    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                    if shape.fillColor.getRed(&r, green: &g, blue: &b, alpha: &a), a > 0.2,
+                       !(r < 0.12 && g < 0.12 && b < 0.16) {
+                        red += r; green += g; blue += b; count += 1
+                    }
+                }
+                for child in node.children { collectPalette(child) }
+            }
+            collectPalette(sprite)
+            palettes.append(count > 0 ? (red / count, green / count, blue / count) : (0, 0, 0))
+
             func flatten(_ node: SKNode) {
                 if let shape = node as? SKShapeNode {
                     shape.fillColor = .black
@@ -155,27 +170,20 @@ final class VisualProofTests: XCTestCase {
         }
 
         var masks: [[Bool]] = []
-        var palettes: [(CGFloat, CGFloat, CGFloat)] = []
         for index in CardCatalog.all.indices {
             let row = index / columns, column = index % columns
             let pixelRow = (height / cellHeight - 1) - row
             var mask: [Bool] = []
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, count: CGFloat = 0
             for y in (pixelRow * cellHeight)..<min(height, (pixelRow + 1) * cellHeight) {
                 for x in (column * cellWidth)..<min(width, (column + 1) * cellWidth) {
                     let offset = y * bytesPerRow + x * 4
                     let r = CGFloat(pixels[offset]) / 255
                     let g = CGFloat(pixels[offset + 1]) / 255
                     let b = CGFloat(pixels[offset + 2]) / 255
-                    let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-                    mask.append(luminance < 0.35)
-                    if luminance > 0.18 && luminance < 0.94 {
-                        red += r; green += g; blue += b; count += 1
-                    }
+                    mask.append(0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35)
                 }
             }
             masks.append(mask)
-            palettes.append(count > 0 ? (red / count, green / count, blue / count) : (0, 0, 0))
         }
         return (masks, palettes)
     }
@@ -187,8 +195,8 @@ final class VisualProofTests: XCTestCase {
         for first in 0..<audit.masks.count {
             for second in (first + 1)..<audit.masks.count {
                 let a = audit.masks[first], b = audit.masks[second]
-                let intersection = zip(a, b).filter { $0 && $1 }.count
-                let union = zip(a, b).filter { $0 || $1 }.count
+                let intersection = zip(a, b).filter { $0.0 && $0.1 }.count
+                let union = zip(a, b).filter { $0.0 || $0.1 }.count
                 let silhouetteSimilarity = union == 0 ? 1.0 : Double(intersection) / Double(union)
                 let p = audit.palettes[first], q = audit.palettes[second]
                 let paletteDistance = sqrt(pow(Double(p.0 - q.0), 2) +
@@ -206,13 +214,13 @@ final class VisualProofTests: XCTestCase {
 
     func testEveryCardHasItsRequiredAnimationCoverage() {
         XCTAssertEqual(CardCatalog.all.count, 91)
+        let scene = ArenaScene(size: boardSize)
+        scene.scaleMode = .resizeFill
+        scene.reduceMotion = false
+        let view = SKView(frame: CGRect(origin: .zero, size: boardSize))
+        view.presentScene(scene)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.12))
         for (index, card) in CardCatalog.all.enumerated() {
-            let scene = ArenaScene(size: boardSize)
-            scene.scaleMode = .resizeFill
-            scene.reduceMotion = false
-            let view = SKView(frame: CGRect(origin: .zero, size: boardSize))
-            view.presentScene(scene)
-            RunLoop.main.run(until: Date().addingTimeInterval(0.015))
             let nodeID = 50_000 + index
             let node = scene.proofCreateAnimationNode(card, team: .blue, id: nodeID)
             XCTAssertNotNil(node.action(forKey: "deploy-pop"), "\(card.name): deploy pop missing")
@@ -241,13 +249,13 @@ final class VisualProofTests: XCTestCase {
                 scene.proofAddAttack(style: "projectile", sourceID: nodeID,
                                      from: CGPoint(x: 8, y: 12), to: CGPoint(x: 10, y: 14))
                 XCTAssertGreaterThan(scene.proofProjectileEffectCount, previous,
-                              "\(card.name): ranged projectile missing")
+                                     "\(card.name): ranged projectile missing")
             } else {
                 let previous = scene.proofMeleeSwingCount
                 scene.proofAddAttack(style: "melee", sourceID: nodeID,
                                      from: CGPoint(x: 8, y: 12), to: CGPoint(x: 9, y: 12))
                 XCTAssertGreaterThan(scene.proofMeleeSwingCount, previous,
-                              "\(card.name): melee swing/lunge missing")
+                                     "\(card.name): melee swing/lunge missing")
             }
         }
     }
