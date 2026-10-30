@@ -250,6 +250,59 @@ enum CardSpriteFactory {
         if let body = root.childNode(withName: "body") {
             body.run(.repeatForever(.sequence([.scaleY(to: 0.96, duration: 0.38), .scaleY(to: 1.02, duration: 0.38)])), withKey: "idle-breathe")
         }
+        // A second silhouette layer gives every roster entry a distinct outline at thumbnail scale.
+        switch index % 12 {
+        case 0:
+            shape([CGPoint(x:-bodyWidth*0.36,y:h*0.10),CGPoint(x:-bodyWidth*0.70,y:-h*0.34),
+                   CGPoint(x:0,y:-h*0.22),CGPoint(x:bodyWidth*0.70,y:-h*0.34),
+                   CGPoint(x:bodyWidth*0.36,y:h*0.10)], trim, outline, 1.8).zPosition = -1
+        case 1:
+            shape([CGPoint(x:-w*0.18,y:h*0.42),CGPoint(x:-w*0.34,y:h*0.64),CGPoint(x:-w*0.02,y:h*0.52)], trim, outline, 1.6).zPosition = 5
+            shape([CGPoint(x:w*0.18,y:h*0.42),CGPoint(x:w*0.34,y:h*0.64),CGPoint(x:w*0.02,y:h*0.52)], trim, outline, 1.6).zPosition = 5
+        case 2:
+            rect(CGRect(x:-bodyWidth*0.58,y:-h*0.02,width:w*0.16,height:h*0.52), w*0.035, trim, outline, 1.6, z: -1)
+            for arrow in 0..<3 {
+                let x = -bodyWidth*0.50 + CGFloat(arrow)*w*0.045
+                shape([CGPoint(x:x,y:h*0.40),CGPoint(x:x+w*0.035,y:h*0.27),CGPoint(x:x-w*0.035,y:h*0.27)], .lightGray, outline, 1).zPosition = 1
+            }
+        case 3:
+            for side in [-1.0,1.0] {
+                shape([CGPoint(x:CGFloat(side)*bodyWidth*0.36,y:h*0.08),CGPoint(x:CGFloat(side)*bodyWidth*0.72,y:h*0.28),
+                       CGPoint(x:CGFloat(side)*bodyWidth*0.55,y:-h*0.04)], trim, outline, 1.6).zPosition = 4
+            }
+        case 4:
+            for side in [-1.0,1.0] {
+                shape([CGPoint(x:CGFloat(side)*bodyWidth*0.36,y:h*0.12),CGPoint(x:CGFloat(side)*bodyWidth*0.88,y:h*0.42),
+                       CGPoint(x:CGFloat(side)*bodyWidth*0.72,y:-h*0.08)], coat, outline, 1.8).zPosition = -1
+            }
+        case 5:
+            shape([CGPoint(x:-bodyWidth*0.56,y:h*0.16),CGPoint(x:-bodyWidth*0.90,y:h*0.02),
+                   CGPoint(x:-bodyWidth*0.82,y:-h*0.30),CGPoint(x:-bodyWidth*0.50,y:-h*0.36),
+                   CGPoint(x:-bodyWidth*0.40,y:-h*0.02)], trim, outline, 2.0).zPosition = 4
+        case 6:
+            for side in [-1.0,1.0] {
+                ellipse(CGRect(x:CGFloat(side)*bodyWidth*0.38-w*0.13,y:h*0.04,width:w*0.26,height:h*0.24),
+                        trim, outline, 1.8, z: 4)
+            }
+        case 7:
+            rect(CGRect(x:-bodyWidth*0.56,y:-h*0.16,width:w*0.22,height:h*0.40), w*0.06, coat, outline, 1.8, z: -1)
+            ellipse(CGRect(x:-bodyWidth*0.55,y:-h*0.24,width:w*0.20,height:h*0.16), trim, outline, 1.2, z: -1)
+        case 8:
+            let orb = ellipse(CGRect(x:bodyWidth*0.48,y:h*0.18,width:w*0.20,height:h*0.20), .systemCyan, .white, 1.1, z: 7)
+            orb.glowWidth = 1.4
+        case 9:
+            shape([CGPoint(x:0,y:h*0.42),CGPoint(x:-w*0.10,y:h*0.74),CGPoint(x:w*0.06,y:h*0.63),
+                   CGPoint(x:w*0.18,y:h*0.78),CGPoint(x:w*0.16,y:h*0.42)], .systemYellow, outline, 1.7).zPosition = 6
+        case 10:
+            shape([CGPoint(x:-bodyWidth*0.30,y:-h*0.10),CGPoint(x:-bodyWidth*0.72,y:-h*0.45),
+                   CGPoint(x:bodyWidth*0.72,y:-h*0.45),CGPoint(x:bodyWidth*0.30,y:-h*0.10)], coat, outline, 1.8).zPosition = -1
+        default:
+            let halo = SKShapeNode(ellipseOf: CGSize(width:w*0.62,height:h*0.13))
+            halo.position = CGPoint(x:0,y:h*0.60); halo.fillColor = .clear
+            halo.strokeColor = .systemYellow; halo.lineWidth = 2; halo.glowWidth = 1.2
+            halo.zPosition = 6; root.addChild(halo)
+        }
+
         // Team sash and bright card trim never replace the card's own palette.
         shape([CGPoint(x:-bodyWidth*0.44,y:h*0.04),CGPoint(x:bodyWidth*0.44,y:h*0.04),CGPoint(x:bodyWidth*0.30,y:-h*0.12),CGPoint(x:-bodyWidth*0.30,y:-h*0.12)], teamColor, outline, 1.4).zPosition = 3
         if robot || stone {
