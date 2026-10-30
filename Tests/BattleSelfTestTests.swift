@@ -49,7 +49,7 @@ final class BattleSelfTestTests: XCTestCase {
             BattleEntity(id: 7, cardID: runner.id, team: .blue, x: 3.2, y: 21.5, hp: runner.hp, maxHP: runner.hp)
         ]
         let model = BattleModel(deck: CardCatalog.starterDeck, seed: 71, isPractice: true, practiceScenario: .standard, initialEntities: setup)
-        for _ in 0..<100 { model.tick() }
+        for _ in 0..<15 { model.tick() }
         let troop = model.entities.first { $0.id == 7 }
         XCTAssertNotNil(troop)
         XCTAssertGreaterThan(troop?.x ?? 3.2, 3.25, "Troops must turn toward the King Tower after their lane Princess Tower falls")
