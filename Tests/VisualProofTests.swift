@@ -209,7 +209,6 @@ final class VisualProofTests: XCTestCase {
             let scene = ArenaScene(size: boardSize)
             scene.scaleMode = .resizeFill
             scene.reduceMotion = false
-            scene.thermalLimited = false
             let view = SKView(frame: CGRect(origin: .zero, size: boardSize))
             view.presentScene(scene)
             RunLoop.main.run(until: Date().addingTimeInterval(0.015))
@@ -237,14 +236,16 @@ final class VisualProofTests: XCTestCase {
                 XCTAssertTrue(scene.proofHasSpellImpactShake,
                               "\(card.name): spell impact screen shake missing")
             } else if card.behavior.contains(.ranged) || card.range > 1.2 {
+                let previous = scene.proofProjectileEffectCount
                 scene.proofAddAttack(style: "projectile", sourceID: nodeID,
                                      from: CGPoint(x: 8, y: 12), to: CGPoint(x: 10, y: 14))
-                XCTAssertTrue(scene.proofHasProjectileEffect,
+                XCTAssertGreaterThan(scene.proofProjectileEffectCount, previous,
                               "\(card.name): ranged projectile missing")
             } else {
+                let previous = scene.proofMeleeSwingCount
                 scene.proofAddAttack(style: "melee", sourceID: nodeID,
                                      from: CGPoint(x: 8, y: 12), to: CGPoint(x: 9, y: 12))
-                XCTAssertTrue(scene.proofHasMeleeSwing,
+                XCTAssertGreaterThan(scene.proofMeleeSwingCount, previous,
                               "\(card.name): melee swing/lunge missing")
             }
         }
