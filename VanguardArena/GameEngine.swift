@@ -856,6 +856,17 @@ final class BattleModel: ObservableObject {
                 entities[j].y = min(31.5, max(0.5, entities[j].y + ny * correction * shareB))
             }
         }
+        // Separation must not push ground troops off the bridge into river tiles.
+        for index in entities.indices where !entities[index].tower &&
+            CardCatalog.byID[entities[index].cardID]?.kind == .troop &&
+            CardCatalog.byID[entities[index].cardID]?.behavior.contains(.flying) != true {
+            let cell = ArenaNavigation.cell(x: entities[index].x, y: entities[index].y)
+            if (15...16).contains(cell.y) && !ArenaNavigation.isBridge(cell),
+               let safe = lastProgressPosition[entities[index].id] {
+                entities[index].x = safe.0
+                entities[index].y = safe.1
+            }
+        }
     }
     private func lockedTargetIndex(for entity: BattleEntity, range: Double) -> Int? {
         if let lockedID = lockedTargetIDs[entity.id],
