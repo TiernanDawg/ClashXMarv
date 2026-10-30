@@ -72,7 +72,7 @@ final class VisualProofTests: XCTestCase {
         scene.addChild(label)
     }
 
-    func testGenerateEveryCardBlueAndRedContactSheets() {
+    private func contactSheet(team: Team) -> UIImage {
         let scene = ArenaScene(size: boardSize)
         scene.scaleMode = .resizeFill
         scene.reduceMotion = true
@@ -85,25 +85,30 @@ final class VisualProofTests: XCTestCase {
         for (index, card) in CardCatalog.all.enumerated() {
             let row = index / 7
             let column = index % 7
-            let y = 1.75 + Double(row) * 2.20
-            let blueX = 0.70 + Double(column) * 1.18
-            let redX = 9.18 + Double(column) * 1.18
-            scene.proofAddCardSprite(card, team: .blue, x: blueX, y: y)
-            scene.proofAddCardSprite(card, team: .red, x: redX, y: y)
-            addName(card.name, x: CGFloat(blueX) * (boardSize.width / 18),
-                    y: CGFloat(y) * (boardSize.height / 32) - 18, to: scene)
-            addName(card.name, x: CGFloat(redX) * (boardSize.width / 18),
-                    y: CGFloat(y) * (boardSize.height / 32) - 18, to: scene)
+            let x = 2.0 + Double(column) * 2.2
+            let y = 1.7 + Double(row) * 2.2
+            scene.proofAddCardSprite(card, team: team, x: x, y: y)
+            addName(card.name, x: CGFloat(x) * (boardSize.width / 18),
+                    y: CGFloat(y) * (boardSize.height / 32) - 22, to: scene)
         }
+        return snapshot(view, scene)
+    }
 
-        let highResolution = snapshot(view, scene)
-        attach(highResolution, name: "Card-Contact-Sheet-3x-Blue-and-Red.png")
-        let oneXFormat = UIGraphicsImageRendererFormat()
-        oneXFormat.scale = 1
-        let oneX = UIGraphicsImageRenderer(size: boardSize, format: oneXFormat).image { _ in
-            highResolution.draw(in: CGRect(origin: .zero, size: boardSize))
+    private func downsampleToOneX(_ image: UIImage) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: boardSize, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: boardSize))
         }
-        attach(oneX, name: "Card-Contact-Sheet-In-Game-Scale-Blue-and-Red.png")
+    }
+
+    func testGenerateEveryCardBlueAndRedContactSheets() {
+        let blue = contactSheet(team: .blue)
+        attach(blue, name: "Card-Contact-Sheet-3x-Blue.png")
+        attach(downsampleToOneX(blue), name: "Card-Contact-Sheet-In-Game-Scale-Blue.png")
+        let red = contactSheet(team: .red)
+        attach(red, name: "Card-Contact-Sheet-3x-Red.png")
+        attach(downsampleToOneX(red), name: "Card-Contact-Sheet-In-Game-Scale-Red.png")
         XCTAssertEqual(CardCatalog.all.count, 91, "Visual proof must cover the entire card catalog")
     }
 
@@ -124,17 +129,35 @@ final class VisualProofTests: XCTestCase {
 
         let (destroyView, destroyScene, _) = makeArena()
         destroyScene.proofAddTowerDestruction(x: 3.2, y: 30, destroyedTeam: .red)
-        attach(snapshot(destroyView, destroyScene), name: "Arena-Tower-Destruction-Explosion.png")
+        let destructionFrame = snapshot(destroyView, destroyScene)
+        attach(destructionFrame, name: "Arena-Tower-Destruction-Explosion.png")
+        let tile = boardSize.width / 18
+        attach(crop(destructionFrame, sceneRect: CGRect(x: 0, y: tile * 24, width: tile * 8, height: tile * 8)),
+               name: "Arena-Tower-Destruction-Closeup.png")
 
         let (crownView, crownScene, _) = makeArena(removeRedPrincess: true)
         crownScene.proofAddCrownTracker(blue: 1, red: 0)
         attach(snapshot(crownView, crownScene), name: "Arena-Crown-Tracker-After-Princess-Falls.png")
     }
 
+    private func crop(_ image: UIImage, sceneRect: CGRect) -> UIImage {
+        guard let cg = image.cgImage else { return image }
+        let scale = image.scale
+        let cropRect = CGRect(x: sceneRect.minX * scale,
+                              y: (boardSize.height - sceneRect.maxY) * scale,
+                              width: sceneRect.width * scale,
+                              height: sceneRect.height * scale).integral
+        guard let cropped = cg.cropping(to: cropRect) else { return image }
+        return UIImage(cgImage: cropped, scale: scale, orientation: .up)
+    }
+
     private func frameStrip(kind: String) -> UIImage {
         let (view, scene, _) = makeArena()
         let tower = kind == "tower"
-        let sourceID = tower ? 1 : 7
+        let sourceID = tower ? 1 : (kind == "melee" ? 7 : 8)
+        let from = tower ? CGPoint(x: 3.2, y: 2) :
+            (kind == "melee" ? CGPoint(x: 5.0, y: 10.2) : CGPoint(x: 4.3, y: 12.0))
+        let to = tower ? CGPoint(x: 5.0, y: 10.2) : CGPoint(x: 6.0, y: 13.2)
         if kind == "spell" {
             scene.proofAddSpell(style: "spell-telegraph", x: 8.2, y: 13.2, radius: 3.0)
         } else {
@@ -151,24 +174,34 @@ final class VisualProofTests: XCTestCase {
         } else {
             frames.append(snapshot(view, scene))
             scene.proofAddAttack(style: kind == "melee" ? "melee" : "projectile",
-                                 sourceID: sourceID,
-                                 from: tower ? CGPoint(x: 3.2, y: 2) : CGPoint(x: 5.0, y: 10.2),
-                                 to: CGPoint(x: 6.0, y: 13.2))
+                                 sourceID: sourceID, from: from, to: to)
             RunLoop.main.run(until: Date().addingTimeInterval(0.10))
             frames.append(snapshot(view, scene))
             RunLoop.main.run(until: Date().addingTimeInterval(0.22))
             frames.append(snapshot(view, scene))
         }
-        let stripSize = CGSize(width: boardSize.width * 3, height: boardSize.height)
+        let tile = boardSize.width / 18
+        let regionTiles: CGRect
+        switch kind {
+        case "melee": regionTiles = CGRect(x: 3, y: 8, width: 6, height: 7)
+        case "ranged": regionTiles = CGRect(x: 2, y: 9, width: 6, height: 7)
+        case "tower": regionTiles = CGRect(x: 0, y: 0, width: 8, height: 15)
+        default: regionTiles = CGRect(x: 4, y: 9, width: 8, height: 8)
+        }
+        let sceneRect = CGRect(x: regionTiles.minX * tile, y: regionTiles.minY * tile,
+                               width: regionTiles.width * tile, height: regionTiles.height * tile)
+        let croppedFrames = frames.map { crop($0, sceneRect: sceneRect) }
+        let frameSize = croppedFrames[0].size
+        let stripSize = CGSize(width: frameSize.width * 3, height: frameSize.height)
         let stripFormat = UIGraphicsImageRendererFormat()
         stripFormat.scale = 1
-        return UIGraphicsImageRenderer(size: stripSize, format: stripFormat).image { context in
-            for (index, frame) in frames.enumerated() {
-                frame.draw(in: CGRect(x: CGFloat(index) * boardSize.width, y: 0,
-                                      width: boardSize.width, height: boardSize.height))
+        return UIGraphicsImageRenderer(size: stripSize, format: stripFormat).image { _ in
+            for (index, frame) in croppedFrames.enumerated() {
+                frame.draw(in: CGRect(x: CGFloat(index) * frameSize.width, y: 0,
+                                      width: frameSize.width, height: frameSize.height))
                 let title = ["WINDUP", "STRIKE", "RECOVERY"][index] as NSString
-                title.draw(at: CGPoint(x: CGFloat(index) * boardSize.width + 12, y: 10),
-                           withAttributes: [.font: UIFont.boldSystemFont(ofSize: 14),
+                title.draw(at: CGPoint(x: CGFloat(index) * frameSize.width + 8, y: 6),
+                           withAttributes: [.font: UIFont.boldSystemFont(ofSize: 12),
                                             .foregroundColor: UIColor.white])
             }
         }
