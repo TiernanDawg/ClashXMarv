@@ -720,9 +720,10 @@ final class BattleModel: ObservableObject {
             if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
             else { blueCrowns = min(3, blueCrowns + 1) }
         }
-        let entityCountBeforeCleanup = entities.count
+        let removedNavigationObstacle = entities.contains { !$0.alive &&
+            ($0.tower || CardCatalog.byID[$0.cardID]?.kind == .building) }
         entities.removeAll { !$0.alive }
-        if entities.count != entityCountBeforeCleanup {
+        if removedNavigationObstacle {
             // A destroyed tower/building immediately becomes traversable for subsequent A* searches.
             navigationRevision += 1
             navigationPaths.removeAll()
@@ -792,6 +793,17 @@ final class BattleModel: ObservableObject {
         if amount >= 35 && elapsed - (lastDamageEventTime[id] ?? -100) >= 0.25 {
             events.append(BattleEvent(x: entities[index].x, y: entities[index].y, text: "−\(Int(amount))", born: elapsed))
             lastDamageEventTime[id] = elapsed
+        }
+        // Collision resolution may not shove a ground troop off a bridge into river water.
+        for index in entities.indices where !entities[index].tower &&
+            CardCatalog.byID[entities[index].cardID]?.kind == .troop &&
+            CardCatalog.byID[entities[index].cardID]?.behavior.contains(.flying) != true {
+            let cell = ArenaNavigation.cell(x: entities[index].x, y: entities[index].y)
+            if (15...16).contains(cell.y) && !ArenaNavigation.isBridge(cell),
+               let safe = lastProgressPosition[entities[index].id] {
+                entities[index].x = safe.0
+                entities[index].y = safe.1
+            }
         }
     }
     func debugLockedTargetID(for unitID: Int) -> Int? { lockedTargetIDs[unitID] }
