@@ -748,6 +748,14 @@ final class BattleModel: ObservableObject {
                 meta.dailyDate = Date()
                 meta.dailyQuests = MetaProgression().dailyQuests
             }
+            if meta.challengeDate.map({ !Calendar.current.isDateInToday($0) }) ?? true {
+                meta.challengeDate = Date()
+                meta.challengeWins = 0
+                meta.challengeClaimed = false
+            }
+            if result == "VICTORY" && meta.challengeClaimed != true {
+                meta.challengeWins = min(2, (meta.challengeWins ?? 0) + 1)
+            }
             for i in meta.dailyQuests.indices {
                 switch meta.dailyQuests[i].id {
                 case "win-one": if result == "VICTORY" { meta.dailyQuests[i].progress = min(meta.dailyQuests[i].target, meta.dailyQuests[i].progress + 1) }
