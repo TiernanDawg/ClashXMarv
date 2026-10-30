@@ -53,7 +53,7 @@ jobs:
           mkdir -p build/visual-proof
           xcrun xcresulttool export attachments --path build/VanguardArena-VisualProof.xcresult --output-path build/visual-proof
           find build/visual-proof -type f -maxdepth 2 -print
-          test "$(find build/visual-proof -type f -iname '*.png' | wc -l | tr -d ' ')" -ge 11
+          test "$(find build/visual-proof -type f -iname '*.png' | wc -l | tr -d ' ')" -ge 14
       - name: Upload visual proof artifact
         uses: actions/upload-artifact@v4
         with:
