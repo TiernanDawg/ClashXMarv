@@ -348,6 +348,11 @@ final class ArenaScene: SKScene {
         }
     }
     private func accentColor(for id: String) -> UIColor {
+        // Golden-angle spacing gives every catalog card a distinct, stable hue.
+        if let index = CardCatalog.all.firstIndex(where: { $0.id == id }) {
+            let hue = CGFloat((Double(index) * 0.61803398875).truncatingRemainder(dividingBy: 1))
+            return UIColor(hue: hue, saturation: 0.76, brightness: 0.98, alpha: 1)
+        }
         var hash: UInt32 = 2166136261
         for byte in id.utf8 { hash = (hash ^ UInt32(byte)) &* 16777619 }
         return UIColor(hue: CGFloat(hash % 360) / 360, saturation: 0.72, brightness: 0.98, alpha: 1)
@@ -440,7 +445,11 @@ final class ArenaScene: SKScene {
         if let sourceID = event.sourceID, let source = entityNodes[sourceID] {
             if let body = source.childNode(withName: "//body") {
                 body.removeAction(forKey: "attack-pulse")
-                body.run(.sequence([.scale(to: 1.14, duration: 0.055), .scale(to: 1.0, duration: 0.10)]), withKey: "attack-pulse")
+                body.run(.sequence([
+                    .scale(to: 1.08, duration: 0.075), // windup
+                    .scale(to: 0.90, duration: 0.055), // strike
+                    .scale(to: 1.0, duration: 0.13)    // recovery
+                ]), withKey: "attack-pulse")
             }
             if let weapon = source.childNode(withName: "//weapon-arm") {
                 weapon.removeAction(forKey: "weapon-swing")
@@ -543,7 +552,12 @@ final class ArenaScene: SKScene {
             let isGoblin = analog.contains("goblin") || analog.contains("gobbler")
             let isMage = analog.contains("witch") || analog.contains("wizard") || analog.contains("strange") || analog.contains("mage")
             let isTank = card.behavior.contains(.buildingTarget) || card.hp > 2200
-            let bodyWidth = tileWidth * (isTank ? 0.92 : 0.76), bodyHeight = tileHeight * (isTank ? 0.82 : 0.72)
+            let cardIndex = CardCatalog.all.firstIndex(where: { $0.id == card.id }) ?? 0
+            // Card-index-derived proportions create a stable individual silhouette profile.
+            let widthVariant = 0.76 + CGFloat((cardIndex * 7) % 9) * 0.018
+            let heightVariant = 0.72 + CGFloat((cardIndex * 5) % 11) * 0.014
+            let bodyWidth = tileWidth * (isTank ? 0.92 : widthVariant)
+            let bodyHeight = tileHeight * (isTank ? 0.82 : heightVariant)
 
             addPolygon(visual, points: [
                 CGPoint(x: -bodyWidth * 0.25, y: bodyHeight * 0.12), CGPoint(x: bodyWidth * 0.25, y: bodyHeight * 0.12),
