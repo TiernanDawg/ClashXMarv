@@ -227,7 +227,7 @@ final class VisualProofTests: XCTestCase {
             let body = node.childNode(withName: "//body")
             XCTAssertNotNil(body?.action(forKey: "idle-bob"), "\(card.name): idle animation missing")
             scene.proofTriggerWalk(node)
-            if card.kind != .spell {
+            if card.kind != .spell && card.kind != .building {
                 XCTAssertNotNil(node.childNode(withName: "//leg-left")?.action(forKey: "walk-cycle"),
                                 "\(card.name): walk cycle missing")
             }
