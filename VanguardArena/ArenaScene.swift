@@ -222,6 +222,9 @@ final class ArenaScene: SKScene {
                     body.removeAction(forKey: "walk-squash")
                     body.run(.sequence([.scaleX(to: 0.91, duration: 0.07), .scaleX(to: 1.05, duration: 0.08), .scaleX(to: 1.0, duration: 0.07)]), withKey: "walk-squash")
                 }
+                if let visual = node.childNode(withName: "visual") {
+                    visual.xScale = newPosition.x < oldPosition.x ? -1 : 1
+                }
                 for (name, sign) in [("leg-left", 1.0), ("leg-right", -1.0)] {
                     if let leg = node.childNode(withName: "//" + name) {
                         leg.removeAction(forKey: "walk-cycle")
@@ -247,8 +250,11 @@ final class ArenaScene: SKScene {
                 badge.fillColor = ratio > 0.5 ? .systemGreen : (ratio > 0.25 ? .systemYellow : .systemRed)
             }
             if let body = node.childNode(withName: "body") as? SKShapeNode {
-                body.fillColor = highContrast ? (entity.team == .blue ? UIColor.systemCyan : UIColor.systemOrange) : (entity.team == .blue ? UIColor(red: 0.20, green: 0.58, blue: 0.98, alpha: 1) : UIColor(red: 0.96, green: 0.25, blue: 0.30, alpha: 1))
-                if entity.tower { body.fillColor = entity.king ? .systemYellow : (entity.team == .blue ? .systemTeal : .systemPink) }
+                if entity.tower {
+                    body.fillColor = entity.king ? .systemYellow : (entity.team == .blue ? .systemTeal : .systemPink)
+                } else if highContrast {
+                    body.fillColor = entity.team == .blue ? UIColor.systemCyan : UIColor.systemOrange
+                }
             }
         }
         for event in model.events {
@@ -519,8 +525,10 @@ final class ArenaScene: SKScene {
         let teamColor = entity.team == .blue
             ? UIColor(red: 0.13, green: 0.48, blue: 0.92, alpha: 1)
             : UIColor(red: 0.88, green: 0.20, blue: 0.27, alpha: 1)
-        let shadow = SKShapeNode(ellipseOf: CGSize(width: entity.tower ? tileWidth * 1.6 : tileWidth * 1.12, height: tileHeight * 0.32))
-        shadow.position = CGPoint(x: tileWidth * 0.08, y: -tileHeight * 0.34); shadow.fillColor = .black.withAlphaComponent(0.32); shadow.strokeColor = .clear
+        let isFlyingEntity = definition?.behavior.contains(.flying) == true
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: entity.tower ? tileWidth * 1.6 : tileWidth * (isFlyingEntity ? 0.78 : 1.12), height: tileHeight * 0.32))
+        shadow.position = CGPoint(x: tileWidth * 0.08, y: -tileHeight * (isFlyingEntity ? 0.72 : 0.34))
+        shadow.fillColor = .black.withAlphaComponent(0.32); shadow.strokeColor = .clear
         root.addChild(shadow)
         let visual = SKNode()
         visual.name = "visual"; visual.yScale = entity.team == .blue ? 1 : -1
@@ -545,11 +553,24 @@ final class ArenaScene: SKScene {
             addRect(turret, size: CGSize(width: width * 0.17, height: height * 0.42), at: CGPoint(x: 0, y: height * 0.29), radius: 2,
                     fill: UIColor(red: 0.82, green: 0.84, blue: 0.89, alpha: 1), stroke: .darkGray, lineWidth: 0.8)
             if entity.king {
+                // A visible king mascot sits on the King Tower rather than a generic turret cap.
+                addRect(visual, size: CGSize(width: width * 0.50, height: height * 0.28),
+                        at: CGPoint(x: 0, y: height * 0.58), radius: 4,
+                        fill: teamColor, stroke: UIColor(red: 0.055, green: 0.065, blue: 0.10, alpha: 1), lineWidth: 1.8)
+                addCircle(visual, radius: width * 0.24, at: CGPoint(x: 0, y: height * 0.82),
+                          fill: UIColor(red: 0.95, green: 0.72, blue: 0.52, alpha: 1),
+                          stroke: UIColor(red: 0.055, green: 0.065, blue: 0.10, alpha: 1), lineWidth: 1.8)
                 addPolygon(visual, points: [
-                    CGPoint(x: -width * 0.31, y: height * 0.62), CGPoint(x: -width * 0.21, y: height * 0.82),
-                    CGPoint(x: -width * 0.04, y: height * 0.66), CGPoint(x: width * 0.10, y: height * 0.84),
-                    CGPoint(x: width * 0.29, y: height * 0.62)
-                ], fill: UIColor.systemYellow, stroke: .white, lineWidth: 0.7)
+                    CGPoint(x: -width * 0.28, y: height * 0.88), CGPoint(x: -width * 0.22, y: height * 1.10),
+                    CGPoint(x: -width * 0.06, y: height * 0.96), CGPoint(x: width * 0.08, y: height * 1.12),
+                    CGPoint(x: width * 0.27, y: height * 0.88)
+                ], fill: UIColor.systemYellow, stroke: UIColor(red: 0.055, green: 0.065, blue: 0.10, alpha: 1), lineWidth: 1.7)
+                addCircle(visual, radius: 1.5, at: CGPoint(x: -width * 0.09, y: height * 0.84), fill: .black)
+                addCircle(visual, radius: 1.5, at: CGPoint(x: width * 0.09, y: height * 0.84), fill: .black)
+                addPolygon(visual, points: [
+                    CGPoint(x: -width * 0.16, y: height * 0.70), CGPoint(x: 0, y: height * 0.76),
+                    CGPoint(x: width * 0.16, y: height * 0.70), CGPoint(x: 0, y: height * 0.64)
+                ], fill: UIColor(white: 0.96, alpha: 1), stroke: UIColor(red: 0.055, green: 0.065, blue: 0.10, alpha: 1), lineWidth: 1.2)
             } else {
                 addPolygon(visual, points: [
                     CGPoint(x: width * 0.18, y: height * 0.44), CGPoint(x: width * 0.68, y: height * 0.66), CGPoint(x: width * 0.18, y: height * 0.78)
@@ -566,115 +587,9 @@ final class ArenaScene: SKScene {
             core.fillColor = .clear; core.strokeColor = accent.withAlphaComponent(0.8); core.lineWidth = 1.6; core.zPosition = -1; visual.addChild(core)
             if !reduceMotion && !thermalLimited { core.run(.repeatForever(.rotate(byAngle: CGFloat.pi * 2, duration: 3.2))) }
         } else if let card = definition {
-            let analog = card.analog.lowercased()
-            let isFlying = card.behavior.contains(.flying)
-            let isShielded = card.behavior.contains(.shield)
-            let isSkeleton = analog.contains("skeleton") || analog.contains("bone")
-            let isRobot = analog.contains("bot") || analog.contains("droid") || analog.contains("drone") || analog.contains("coil")
-            let isGoblin = analog.contains("goblin") || analog.contains("gobbler")
-            let isMage = analog.contains("witch") || analog.contains("wizard") || analog.contains("strange") || analog.contains("mage")
-            let isTank = card.behavior.contains(.buildingTarget) || card.hp > 2200
-            let cardIndex = CardCatalog.all.firstIndex(where: { $0.id == card.id }) ?? 0
-            // Card-index-derived proportions create a stable individual silhouette profile.
-            let widthVariant = 0.76 + CGFloat((cardIndex * 7) % 9) * 0.018
-            let heightVariant = 0.72 + CGFloat((cardIndex * 5) % 11) * 0.014
-            let bodyWidth = tileWidth * (isTank ? 0.92 : widthVariant)
-            let bodyHeight = tileHeight * (isTank ? 0.82 : heightVariant)
-
-            addPolygon(visual, points: [
-                CGPoint(x: -bodyWidth * 0.25, y: bodyHeight * 0.12), CGPoint(x: bodyWidth * 0.25, y: bodyHeight * 0.12),
-                CGPoint(x: bodyWidth * 0.56, y: -bodyHeight * 0.62), CGPoint(x: -bodyWidth * 0.56, y: -bodyHeight * 0.62)
-            ], fill: accent.withAlphaComponent(0.88), stroke: UIColor.black.withAlphaComponent(0.45), lineWidth: 0.8)
-            for side in [-1.0, 1.0] {
-                addRect(visual, size: CGSize(width: bodyWidth * 0.22, height: bodyHeight * 0.28),
-                        at: CGPoint(x: CGFloat(side) * bodyWidth * 0.18, y: -bodyHeight * 0.47), radius: 2, fill: UIColor(white: 0.13, alpha: 1))
-            }
-            let body = SKShapeNode(rectOf: CGSize(width: bodyWidth, height: bodyHeight), cornerRadius: isTank ? 5 : 7)
-            body.name = "body"; body.position = CGPoint(x: 0, y: -bodyHeight * 0.04); body.fillColor = teamColor; body.strokeColor = accent; body.lineWidth = 1.5; body.zPosition = 2
-            visual.addChild(body)
-            addPolygon(visual, points: [
-                CGPoint(x: -bodyWidth * 0.25, y: bodyHeight * 0.24), CGPoint(x: 0, y: bodyHeight * 0.39),
-                CGPoint(x: bodyWidth * 0.25, y: bodyHeight * 0.24), CGPoint(x: bodyWidth * 0.18, y: -bodyHeight * 0.16),
-                CGPoint(x: 0, y: -bodyHeight * 0.25), CGPoint(x: -bodyWidth * 0.18, y: -bodyHeight * 0.16)
-            ], fill: accent.withAlphaComponent(0.95), stroke: UIColor.white.withAlphaComponent(0.65), lineWidth: 0.75)
-
-            let skin = isSkeleton ? UIColor(white: 0.90, alpha: 1) : (isRobot ? UIColor(red: 0.60, green: 0.78, blue: 0.87, alpha: 1) : UIColor(red: 0.94, green: 0.72, blue: 0.53, alpha: 1))
-            if isRobot {
-                addRect(visual, size: CGSize(width: bodyWidth * 0.62, height: bodyHeight * 0.58), at: CGPoint(x: 0, y: bodyHeight * 0.52),
-                        radius: 3, fill: skin, stroke: accent, lineWidth: 1.2)
-                for side in [-1.0, 1.0] {
-                    addRect(visual, size: CGSize(width: bodyWidth * 0.18, height: bodyHeight * 0.10),
-                            at: CGPoint(x: CGFloat(side) * bodyWidth * 0.15, y: bodyHeight * 0.54), radius: 1, fill: .systemCyan)
-                }
-            } else {
-                addCircle(visual, radius: bodyWidth * 0.30, at: CGPoint(x: 0, y: bodyHeight * 0.50), fill: skin, stroke: accent, lineWidth: 1.2)
-                for side in [-1.0, 1.0] {
-                    addCircle(visual, radius: max(1.2, bodyWidth * 0.045), at: CGPoint(x: CGFloat(side) * bodyWidth * 0.105, y: bodyHeight * 0.52),
-                              fill: UIColor(white: 0.12, alpha: 1))
-                }
-            }
-            addPolygon(visual, points: [
-                CGPoint(x: -bodyWidth * 0.34, y: bodyHeight * 0.64), CGPoint(x: -bodyWidth * 0.25, y: bodyHeight * 0.96),
-                CGPoint(x: 0, y: bodyHeight * 0.80), CGPoint(x: bodyWidth * 0.25, y: bodyHeight * 0.96),
-                CGPoint(x: bodyWidth * 0.34, y: bodyHeight * 0.64)
-            ], fill: isMage ? accent : UIColor(red: 0.28, green: 0.31, blue: 0.37, alpha: 1),
-               stroke: UIColor.white.withAlphaComponent(0.65), lineWidth: 0.7)
-            if isGoblin {
-                addPolygon(visual, points: [
-                    CGPoint(x: -bodyWidth * 0.24, y: bodyHeight * 0.47), CGPoint(x: -bodyWidth * 0.58, y: bodyHeight * 0.72), CGPoint(x: -bodyWidth * 0.18, y: bodyHeight * 0.68)
-                ], fill: skin, stroke: accent, lineWidth: 0.5)
-                addPolygon(visual, points: [
-                    CGPoint(x: bodyWidth * 0.24, y: bodyHeight * 0.47), CGPoint(x: bodyWidth * 0.58, y: bodyHeight * 0.72), CGPoint(x: bodyWidth * 0.18, y: bodyHeight * 0.68)
-                ], fill: skin, stroke: accent, lineWidth: 0.5)
-            }
-            let leftArm = SKNode(); leftArm.position = CGPoint(x: -bodyWidth * 0.46, y: bodyHeight * 0.12); visual.addChild(leftArm)
-            addRect(leftArm, size: CGSize(width: bodyWidth * 0.20, height: bodyHeight * 0.44), at: CGPoint(x: 0, y: -bodyHeight * 0.10),
-                    radius: 3, fill: teamColor, stroke: accent, lineWidth: 0.8)
-            let weaponArm = SKNode(); weaponArm.name = "weapon-arm"; weaponArm.position = CGPoint(x: bodyWidth * 0.43, y: bodyHeight * 0.14); visual.addChild(weaponArm)
-            addRect(weaponArm, size: CGSize(width: bodyWidth * 0.20, height: bodyHeight * 0.46), at: CGPoint(x: bodyWidth * 0.02, y: -bodyHeight * 0.08),
-                    radius: 3, fill: teamColor, stroke: accent, lineWidth: 0.8)
-            addCircle(weaponArm, radius: bodyWidth * 0.11, at: CGPoint(x: bodyWidth * 0.03, y: -bodyHeight * 0.29), fill: skin, stroke: accent, lineWidth: 0.5)
-            if card.behavior.contains(.ranged) || isMage {
-                addRect(weaponArm, size: CGSize(width: bodyWidth * 0.10, height: bodyHeight * 0.72), at: CGPoint(x: bodyWidth * 0.22, y: bodyHeight * 0.12),
-                        radius: 2, fill: UIColor(red: 0.42, green: 0.27, blue: 0.16, alpha: 1), stroke: UIColor.black.withAlphaComponent(0.4), lineWidth: 0.6, name: "weapon")
-                addCircle(weaponArm, radius: bodyWidth * 0.13, at: CGPoint(x: bodyWidth * 0.22, y: bodyHeight * 0.50),
-                          fill: accent, stroke: .white, lineWidth: 0.7)
-            } else {
-                addRect(weaponArm, size: CGSize(width: bodyWidth * 0.13, height: bodyHeight * 0.66), at: CGPoint(x: bodyWidth * 0.22, y: bodyHeight * 0.19),
-                        radius: 1, fill: UIColor(white: 0.82, alpha: 1), stroke: accent, lineWidth: 0.7, name: "weapon")
-                addRect(weaponArm, size: CGSize(width: bodyWidth * 0.25, height: bodyHeight * 0.10), at: CGPoint(x: bodyWidth * 0.22, y: -bodyHeight * 0.16),
-                        radius: 1, fill: UIColor(red: 0.48, green: 0.28, blue: 0.13, alpha: 1))
-            }
-            if isShielded {
-                addPolygon(visual, points: [
-                    CGPoint(x: -bodyWidth * 0.66, y: bodyHeight * 0.30), CGPoint(x: -bodyWidth * 0.35, y: bodyHeight * 0.44),
-                    CGPoint(x: -bodyWidth * 0.32, y: -bodyHeight * 0.18), CGPoint(x: -bodyWidth * 0.56, y: -bodyHeight * 0.36),
-                    CGPoint(x: -bodyWidth * 0.72, y: -bodyHeight * 0.16)
-                ], fill: accent, stroke: .white, lineWidth: 1)
-            }
-            if isFlying {
-                for side in [-1.0, 1.0] {
-                    let wing = SKShapeNode(ellipseOf: CGSize(width: bodyWidth * 0.42, height: bodyHeight * 0.48))
-                    wing.position = CGPoint(x: CGFloat(side) * bodyWidth * 0.47, y: bodyHeight * 0.10)
-                    wing.fillColor = accent.withAlphaComponent(0.72); wing.strokeColor = .white.withAlphaComponent(0.78); wing.lineWidth = 0.8; wing.zPosition = -1
-                    visual.addChild(wing)
-                    if !reduceMotion && !thermalLimited { wing.run(.repeatForever(.sequence([.scaleY(to: 0.58, duration: 0.12), .scaleY(to: 1.0, duration: 0.12)]))) }
-                }
-            }
-            if card.behavior.contains(.splash) || card.behavior.contains(.rampBeam) {
-                let aura = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.63)
-                aura.fillColor = .clear; aura.strokeColor = accent.withAlphaComponent(0.72); aura.lineWidth = card.behavior.contains(.rampBeam) ? 2.3 : 1.4; aura.zPosition = -2
-                visual.addChild(aura)
-                if !reduceMotion && !thermalLimited { aura.run(.repeatForever(.sequence([.scale(to: 1.14, duration: 0.45), .scale(to: 0.94, duration: 0.45)]))) }
-            }
-            for (name, x) in [("leg-left", -bodyWidth * 0.18), ("leg-right", bodyWidth * 0.18)] {
-                let leg = SKNode(); leg.name = name; leg.position = CGPoint(x: x, y: -bodyHeight * 0.36); visual.addChild(leg)
-                addRect(leg, size: CGSize(width: bodyWidth * 0.20, height: bodyHeight * 0.30), at: CGPoint(x: 0, y: -bodyHeight * 0.05),
-                        radius: 2, fill: UIColor(white: 0.17, alpha: 1), stroke: accent, lineWidth: 0.5)
-            }
-            if !reduceMotion && !thermalLimited {
-                body.run(.repeatForever(.sequence([.scaleY(to: 0.96, duration: 0.42), .scaleY(to: 1.02, duration: 0.42)])), withKey: "idle-breathe")
-            }
+            let avatar = CardSpriteFactory.make(card: card, team: entity.team,
+                                                 size: CGSize(width: tileWidth * 1.15, height: tileHeight * 1.65))
+            visual.addChild(avatar)
         }
 
         let hpY = entity.tower ? tileHeight * 1.10 : tileHeight * 0.86
@@ -688,6 +603,19 @@ final class ArenaScene: SKScene {
             let ring = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.82)
             ring.strokeColor = UIColor.white.withAlphaComponent(0.88); ring.lineWidth = 2; ring.fillColor = .clear; root.addChild(ring)
             ring.run(.sequence([.wait(forDuration: entity.deployClock), .fadeOut(withDuration: 0.16), .removeFromParent()]))
+        }
+        // Deployment is a readable pop-in with a small, capped dust burst at ground level.
+        root.setScale(0.24)
+        root.run(.sequence([.scale(to: 1.12, duration: 0.11), .scale(to: 1.0, duration: 0.09)]), withKey: "deploy-pop")
+        if !entity.tower && !reduceMotion && !thermalLimited {
+            for index in 0..<4 {
+                let dust = SKShapeNode(circleOfRadius: max(1.2, tileWidth * 0.055))
+                dust.position = CGPoint(x: CGFloat(index - 2) * tileWidth * 0.10, y: -tileHeight * 0.40)
+                dust.fillColor = UIColor(white: 0.78, alpha: 0.72); dust.strokeColor = .clear; dust.zPosition = -2
+                root.addChild(dust)
+                dust.run(.sequence([.group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.18, y: tileHeight * 0.20, duration: 0.22),
+                                             .scale(to: 1.8, duration: 0.22), .fadeOut(withDuration: 0.22)]), .removeFromParent()]))
+            }
         }
         return root
     }
