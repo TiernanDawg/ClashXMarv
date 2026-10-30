@@ -818,6 +818,16 @@ final class BattleModel: ObservableObject {
     func debugStuckTime(for unitID: Int) -> Double { stalledFor[unitID] ?? 0 }
     func debugPathRepathCount(for unitID: Int) -> Int { pathRepathCountByUnit[unitID] ?? 0 }
 
+    func towerTargetLocks() -> [(sourceID: Int, targetID: Int, team: Team)] {
+        entities.filter { $0.alive && $0.tower }.compactMap { tower in
+            let range = tower.king ? Balance.kingTowerRange : Balance.princessTowerRange
+            let index = lockedTargetIDs[tower.id].flatMap { id in entities.firstIndex { $0.id == id } }
+                ?? nearestTarget(from: tower, range: range)
+            guard let target = index.map({ entities[$0] }) else { return nil }
+            return (tower.id, target.id, tower.team)
+        }
+    }
+
     func debugOverlayItems() -> [ArenaDebugItem] {
         entities.filter(\.alive).compactMap { entity in
             let card = CardCatalog.byID[entity.cardID]
