@@ -2,6 +2,12 @@ import Foundation
 import Combine
 
 enum Team: Int, Codable { case blue = 0, red = 1 }
+enum PracticeScenario: String, CaseIterable, Identifiable {
+    case standard = "Standard Battle"
+    case targetDummy = "Target Dummy"
+    case enemyPush = "Defend a Push"
+    var id: String { rawValue }
+}
 struct BattleEntity: Identifiable, Codable {
     var id: Int
     var cardID: String
@@ -123,6 +129,7 @@ final class BattleModel: ObservableObject {
     private var blueAIClock = 1.7
     private let automatedBlue: Bool
     let isPractice: Bool
+    let practiceScenario: PracticeScenario
     var difficultyLabel: String { trophyBand < 3 ? "STANDARD" : (trophyBand < 7 ? "ADVANCED" : "EXPERT") }
     private var bannerClock = 3.0
     private var overtime = false
@@ -143,7 +150,7 @@ final class BattleModel: ObservableObject {
         let remaining = max(0, overtime ? 300 - elapsed : 180 - elapsed)
         return String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)
     }
-    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:], trophies: Int = 0, startingElixir: Double = Balance.startElixir, isPractice: Bool = false) {
+    init(deck: [String], seed: UInt64 = UInt64(Date().timeIntervalSince1970), automatedBlue: Bool = false, replayActions: [BattleAction] = [], isReplaying: Bool = false, cardLevels: [String: Int] = [:], trophies: Int = 0, startingElixir: Double = Balance.startElixir, isPractice: Bool = false, practiceScenario: PracticeScenario = .standard) {
         let valid = deck.filter { CardCatalog.byID[$0] != nil }
         let chosen = Array((valid.count >= 8 ? valid : CardCatalog.starterDeck).prefix(8))
         queue = chosen
@@ -156,6 +163,7 @@ final class BattleModel: ObservableObject {
         self.isReplaying = isReplaying
         self.automatedBlue = automatedBlue
         self.isPractice = isPractice
+        self.practiceScenario = isPractice ? practiceScenario : .standard
         let normalizedSeed = seed == 0 ? 1 : seed
         self.seed = normalizedSeed
         rng = normalizedSeed
@@ -171,7 +179,22 @@ final class BattleModel: ObservableObject {
         redHand = Array(redQueue.prefix(4))
         addTower(.blue, 3.2, 2, false); addTower(.blue, 14.8, 2, false); addTower(.blue, 9, 0.7, true)
         addTower(.red, 3.2, 30, false); addTower(.red, 14.8, 30, false); addTower(.red, 9, 31.3, true)
-        aiClock = max(1.2, 3.4 - Double(trophyBand) * 0.12) + Double(random() % 100) / 100
+        if isPractice && practiceScenario == .targetDummy {
+            entitySequence += 1
+            entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: .red, x: 9, y: 19.2, hp: 100000, maxHP: 100000, tower: true, awake: true))
+            events.append(BattleEvent(x: 9, y: 19.2, text: "TARGET DUMMY · 100K HP", born: 0))
+        } else if isPractice && practiceScenario == .enemyPush {
+            let push = ["avenger-rookies", "ghost-ryder", "doombot"]
+            for (offset, id) in push.enumerated() {
+                if let card = CardCatalog.byID[id] {
+                    entitySequence += 1
+                    let hp = card.hp * Balance.levelMultiplier(botLevel)
+                    entities.append(BattleEntity(id: entitySequence, cardID: id, team: .red, x: 6.5 + Double(offset) * 2.5, y: 21.5 + Double(offset % 2), hp: hp, maxHP: hp, levelMultiplier: Balance.levelMultiplier(botLevel)))
+                }
+            }
+            events.append(BattleEvent(x: 9, y: 22, text: "ENEMY PUSH INCOMING", born: 0))
+        }
+        aiClock = isPractice && practiceScenario != .standard ? 999 : max(1.2, 3.4 - Double(trophyBand) * 0.12) + Double(random() % 100) / 100
     }
     init(snapshot: BattleSnapshot) {
         seed = snapshot.seed
