@@ -382,6 +382,26 @@ struct RootView: View {
                         Button(remaining <= 0 ? "CLAIM" : "WAIT") { claimFreeChest() }.font(.caption.bold()).padding(11).background(remaining <= 0 ? gold : .gray.opacity(0.25), in: Capsule()).foregroundStyle(remaining <= 0 ? ink : .white.opacity(0.5)).disabled(remaining > 0)
                     }.padding(12).background(panel, in: RoundedRectangle(cornerRadius: 14)).padding(.horizontal, 16)
                 }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack { Text("DAILY CHALLENGE").font(.headline.bold()).tracking(1); Spacer(); Text("ROTATES DAILY").font(.system(size: 9, weight: .black)).foregroundStyle(accent) }
+                    HStack(spacing: 12) {
+                        Image(systemName: "flag.checkered").font(.title2).foregroundStyle(gold).frame(width: 42, height: 42).background(gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Arena Victor").font(.subheadline.bold())
+                            Text("\(min(2, profile.profile.meta?.challengeWins ?? 0))/2 ladder victories · 250 gold + 40 XP").font(.caption).foregroundStyle(.white.opacity(0.58))
+                        }
+                        Spacer()
+                        if profile.profile.meta?.challengeClaimed == true {
+                            Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                        } else if (profile.profile.meta?.challengeWins ?? 0) >= 2 {
+                            Button("CLAIM") { claimDailyChallenge() }.font(.caption.bold()).padding(9).background(gold, in: Capsule()).foregroundStyle(ink)
+                        } else {
+                            Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.3))
+                        }
+                    }
+                    ProgressView(value: Double(min(2, profile.profile.meta?.challengeWins ?? 0)), total: 2).tint(gold)
+                    Text("Win two standard ladder matches. Practice matches and replays do not count. Progress resets each day; unclaimed rewards expire at reset.").font(.caption).foregroundStyle(.white.opacity(0.5))
+                }.padding(14).background(panel, in: RoundedRectangle(cornerRadius: 16)).padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack { Text("CROWN CHEST").font(.headline.bold()); Spacer(); Text("\(profile.profile.dailyCrowns)/10 crowns").font(.caption.bold()).foregroundStyle(gold) }
                     ProgressView(value: Double(profile.profile.dailyCrowns), total: 10).tint(gold)
@@ -474,6 +494,19 @@ struct RootView: View {
             p.meta = meta
         }
         toast = "Chest rewards claimed"
+    }
+    private func claimDailyChallenge() {
+        profile.update { p in
+            var meta = p.meta ?? MetaProgression()
+            guard Calendar.current.isDateInToday(meta.challengeDate ?? .distantPast),
+                  (meta.challengeWins ?? 0) >= 2, meta.challengeClaimed != true else { p.meta = meta; return }
+            meta.challengeClaimed = true
+            p.gold += 250
+            p.xp += 40
+            p.kingLevel = min(50, 1 + p.xp / 100)
+            p.meta = meta
+        }
+        toast = "Daily challenge claimed · +250 gold · +40 XP"
     }
     private func claimQuest(_ id: String) {
         profile.update { p in
