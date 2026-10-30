@@ -744,16 +744,6 @@ final class ArenaScene: SKScene {
                     CGPoint(x: width * 0.18, y: height * 0.44), CGPoint(x: width * 0.68, y: height * 0.66), CGPoint(x: width * 0.18, y: height * 0.78)
                 ], fill: accent, stroke: .white, lineWidth: 0.7)
             }
-        } else if definition?.kind == .building {
-            let width = tileWidth * 1.18, height = tileHeight * 1.05
-            addRect(visual, size: CGSize(width: width, height: height), at: .zero, radius: 4,
-                    fill: UIColor(red: 0.18, green: 0.22, blue: 0.29, alpha: 1), stroke: accent, lineWidth: 1.7, name: "body")
-            addPolygon(visual, points: [CGPoint(x: -width * 0.64, y: height * 0.30), CGPoint(x: 0, y: height * 0.78), CGPoint(x: width * 0.64, y: height * 0.30)],
-                       fill: accent.withAlphaComponent(0.92), stroke: .white, lineWidth: 0.8)
-            addCircle(visual, radius: tileWidth * 0.20, at: .zero, fill: .systemCyan, stroke: .white, lineWidth: 0.9)
-            let core = SKShapeNode(circleOfRadius: tileWidth * 0.32)
-            core.fillColor = .clear; core.strokeColor = accent.withAlphaComponent(0.8); core.lineWidth = 1.6; core.zPosition = -1; visual.addChild(core)
-            if !reduceMotion && !thermalLimited { core.run(.repeatForever(.rotate(byAngle: CGFloat.pi * 2, duration: 3.2))) }
         } else if let card = definition {
             let avatar = CardSpriteFactory.make(card: card, team: entity.team,
                                                  size: CGSize(width: tileWidth * 1.15, height: tileHeight * 1.65))
