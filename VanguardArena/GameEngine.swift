@@ -705,11 +705,11 @@ final class BattleModel: ObservableObject {
         }
         for tower in entities where tower.tower && !tower.alive {
             if isPractice && tower.maxHP >= 100000 {
-                events.append(BattleEvent(x: tower.x, y: tower.y, text: "TARGET DUMMY DESTROYED", born: elapsed, style: "tower-destroyed"))
+                events.append(BattleEvent(x: tower.x, y: tower.y, text: "TARGET DUMMY DESTROYED", born: elapsed, style: "tower-destroyed", team: tower.team))
                 continue
             }
             if tower.king {
-                events.append(BattleEvent(x: tower.x, y: tower.y, text: "KING TOWER DESTROYED", born: elapsed, style: "tower-destroyed"))
+                events.append(BattleEvent(x: tower.x, y: tower.y, text: "KING TOWER DESTROYED", born: elapsed, style: "tower-destroyed", team: tower.team))
                 banner = "KING TOWER DESTROYED"; bannerClock = 2.4
                 if tower.team == .blue { redCrowns = 3; if result == nil { finish("DEFEAT") } }
                 else { blueCrowns = 3; if result == nil { finish("VICTORY") } }
@@ -717,7 +717,7 @@ final class BattleModel: ObservableObject {
             }
             let lane = tower.x < 9 ? "left" : "right"
             fallenTowerKeys.insert("\(tower.team.rawValue)-\(lane)")
-            events.append(BattleEvent(x: tower.x, y: tower.y, text: "PRINCESS TOWER DESTROYED", born: elapsed, style: "tower-destroyed"))
+            events.append(BattleEvent(x: tower.x, y: tower.y, text: "PRINCESS TOWER DESTROYED", born: elapsed, style: "tower-destroyed", team: tower.team))
             banner = "PRINCESS TOWER DESTROYED"; bannerClock = 2.0
             if overtime { finish(tower.team == .blue ? "DEFEAT" : "VICTORY") }
             if tower.team == .blue { redCrowns = min(3, redCrowns + 1) }
