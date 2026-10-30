@@ -455,19 +455,16 @@ final class ArenaScene: SKScene {
         flash.run(.sequence([.group([.scale(to: 4.2, duration: 0.34), .fadeOut(withDuration: 0.34)]), .removeFromParent()]))
         for index in 0..<12 {
             let angle = CGFloat(index) * (.pi * 2 / 12)
-            let shard = SKShapeNode(rectOf: CGSize(width: tileWidth * 0.16, height: tileHeight * 0.12), cornerRadius: 1)
-            shard.position = point; shard.fillColor = index.isMultiple(of: 2) ? .systemYellow : winnerColor
-            shard.strokeColor = UIColor.black.withAlphaComponent(0.5); shard.lineWidth = 0.8; shard.zPosition = 965
-            addTransientEffect(shard)
-            shard.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 1.65, y: sin(angle) * tileHeight * 1.65, duration: 0.42),
-                                         .rotate(byAngle: angle * 2, duration: 0.42), .fadeOut(withDuration: 0.42)]), .removeFromParent()]))
+            emitParticle(at: point, radius: tileWidth * 0.09,
+                         color: index.isMultiple(of: 2) ? .systemYellow : winnerColor,
+                         z: 965, dx: cos(angle) * tileWidth * 1.65,
+                         dy: sin(angle) * tileHeight * 1.65, duration: 0.42, finalScale: 1.3)
         }
         for index in 0..<5 {
-            let smoke = SKShapeNode(circleOfRadius: tileWidth * (0.15 + CGFloat(index) * 0.025))
-            smoke.position = point; smoke.fillColor = UIColor(white: 0.22, alpha: 0.48); smoke.strokeColor = .clear; smoke.zPosition = 955
-            addTransientEffect(smoke)
-            smoke.run(.sequence([.group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.26, y: tileHeight * CGFloat(1 + index % 2), duration: 0.55),
-                                         .scale(to: 2.4, duration: 0.55), .fadeOut(withDuration: 0.55)]), .removeFromParent()]))
+            emitParticle(at: point, radius: tileWidth * (0.15 + CGFloat(index) * 0.025),
+                         color: UIColor(white: 0.22, alpha: 0.48), z: 955,
+                         dx: CGFloat(index - 2) * tileWidth * 0.26,
+                         dy: tileHeight * CGFloat(1 + index % 2), duration: 0.55, finalScale: 2.4)
         }
         let crownPath = CGMutablePath()
         crownPath.move(to: CGPoint(x: -tileWidth*0.32, y: -tileHeight*0.18))
