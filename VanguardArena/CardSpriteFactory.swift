@@ -42,9 +42,19 @@ enum CardSpriteFactory {
         let archer = analog.contains("archer") || analog.contains("musketeer") || analog.contains("dart") ||
             analog.contains("hunter") || analog.contains("executioner")
         let bulky = card.hp > 1500 || card.behavior.contains(.buildingTarget)
-        let headSize = skeleton ? 0.30 : (bulky ? 0.33 : 0.29)
-        let bodyWidth = w * (bulky ? 0.70 : (spirit ? 0.55 : 0.60))
-        let bodyHeight = h * (bulky ? 0.47 : (spirit ? 0.42 : 0.50))
+        let swarm = card.unitCount > 2 || card.behavior.contains(.swarm)
+        let building = card.kind == .building
+        let ranged = card.behavior.contains(.ranged) || card.range > 1.2
+        // Tanks read as a broad, low mass; swarms read as a compact clustered group;
+        // flyers keep an elevated body and wing silhouette; buildings gain a hard base.
+        let silhouetteWidths: [CGFloat] = [0.88, 1.08, 0.94, 1.14, 0.82, 1.20, 1.0]
+        let silhouetteHeights: [CGFloat] = [1.08, 0.92, 1.16, 0.86, 1.02, 0.94, 1.12]
+        let silhouetteIndex = index % silhouetteWidths.count
+        let roleWidth: CGFloat = swarm ? 0.76 : (bulky ? 1.16 : (building ? 1.12 : 1.0))
+        let roleHeight: CGFloat = swarm ? 0.80 : (bulky ? 1.12 : (flying ? 0.94 : 1.0))
+        let headSize = (skeleton ? 0.30 : (bulky ? 0.33 : 0.29)) * (swarm ? 0.88 : 1.0)
+        let bodyWidth = w * (bulky ? 0.70 : (spirit ? 0.55 : 0.60)) * roleWidth * silhouetteWidths[silhouetteIndex]
+        let bodyHeight = h * (bulky ? 0.47 : (spirit ? 0.42 : 0.50)) * roleHeight * silhouetteHeights[silhouetteIndex]
 
         func shape(_ points: [CGPoint], _ fill: UIColor, _ stroke: UIColor = outline, _ line: CGFloat = 2) -> SKShapeNode {
             let path = CGMutablePath()
@@ -301,6 +311,29 @@ enum CardSpriteFactory {
             halo.position = CGPoint(x:0,y:h*0.60); halo.fillColor = .clear
             halo.strokeColor = .systemYellow; halo.lineWidth = 2; halo.glowWidth = 1.2
             halo.zPosition = 6; root.addChild(halo)
+        }
+
+        if swarm {
+            // Three compact bodies make swarm cards read as a group even at phone scale.
+            for side in [-1.0, 1.0] {
+                ellipse(CGRect(x: CGFloat(side) * w * 0.34 - w * 0.12,
+                               y: -h * 0.02, width: w * 0.24, height: h * 0.30),
+                        coat, outline, 1.6, z: 2)
+            }
+        }
+        if building {
+            // A grounded plinth and crenellated cap separate deployable structures from troops.
+            rect(CGRect(x: -w * 0.43, y: -h * 0.43, width: w * 0.86, height: h * 0.22),
+                 w * 0.045, trim, outline, 2.0, z: -2)
+            shape([CGPoint(x: -w * 0.38, y: h * 0.27), CGPoint(x: -w * 0.38, y: h * 0.47),
+                   CGPoint(x: -w * 0.16, y: h * 0.47), CGPoint(x: -w * 0.16, y: h * 0.36),
+                   CGPoint(x: w * 0.16, y: h * 0.36), CGPoint(x: w * 0.16, y: h * 0.47),
+                   CGPoint(x: w * 0.38, y: h * 0.47), CGPoint(x: w * 0.38, y: h * 0.27)],
+                  coat, outline, 1.8).zPosition = 8
+            if ranged {
+                ellipse(CGRect(x: -w * 0.13, y: h * 0.12, width: w * 0.26, height: h * 0.22),
+                        .systemYellow, outline, 1.4, z: 9)
+            }
         }
 
         // Team sash and bright card trim never replace the card's own palette.
