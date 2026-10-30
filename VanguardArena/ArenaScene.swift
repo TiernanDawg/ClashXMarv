@@ -217,6 +217,7 @@ final class ArenaScene: SKScene {
                     node.run(.sequence([.scale(to: 1.12, duration: 0.055), .scale(to: 1.0, duration: 0.11)]), withKey: "hit-squash")
                 }
                 let flash = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.7)
+                flash.name = "hit-flash"
                 flash.fillColor = .white.withAlphaComponent(0.72)
                 flash.strokeColor = .clear
                 flash.zPosition = 3
@@ -299,7 +300,7 @@ final class ArenaScene: SKScene {
                     node.childNode(withName: "tower-damage-fx")?.removeFromParent()
                 }
             }
-            if let body = node.childNode(withName: "body") as? SKShapeNode {
+            if let body = node.childNode(withName: "//body") {
                 if entity.tower {
                     body.fillColor = entity.king ? .systemYellow : (entity.team == .blue ? .systemTeal : .systemPink)
                 } else if highContrast {
@@ -807,7 +808,14 @@ final class ArenaScene: SKScene {
         } else if let card = definition {
             let avatar = CardSpriteFactory.make(card: card, team: entity.team,
                                                  size: CGSize(width: tileWidth * 1.15, height: tileHeight * 1.65))
+            avatar.name = "body"
             visual.addChild(avatar)
+            if !reduceMotion && !thermalLimited {
+                avatar.run(.repeatForever(.sequence([
+                    .moveBy(x: 0, y: tileHeight * 0.035, duration: 0.48),
+                    .moveBy(x: 0, y: -tileHeight * 0.035, duration: 0.48)
+                ])), withKey: "idle-bob")
+            }
         }
 
         let hpY = entity.tower ? tileHeight * 1.10 : tileHeight * 0.86
@@ -859,6 +867,65 @@ final class ArenaScene: SKScene {
         }
         node.position = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
         addChild(node)
+    }
+
+    /// Build an actual rendered card node for exhaustive XCTest animation checks.
+    func proofCreateAnimationNode(_ card: CardDefinition, team: Team, id: Int) -> SKNode {
+        let hp = max(100, card.hp)
+        let entity = BattleEntity(id: id, cardID: card.id, team: team, x: 8, y: 12, hp: hp, maxHP: hp)
+        let node = makeNode(entity)
+        node.position = CGPoint(x: tileWidth * 8, y: tileHeight * 12)
+        entityNodes[id] = node
+        addChild(node)
+        return node
+    }
+
+    func proofTriggerWalk(_ node: SKNode) {
+        if let body = node.childNode(withName: "//body") {
+            body.run(.sequence([.scaleX(to: 0.91, duration: 0.07),
+                                .scaleX(to: 1.05, duration: 0.08),
+                                .scaleX(to: 1.0, duration: 0.07)]), withKey: "walk-squash")
+        }
+        for (name, sign) in [("leg-left", 1.0), ("leg-right", -1.0)] {
+            if let leg = node.childNode(withName: "//" + name) {
+                leg.run(.sequence([.rotate(byAngle: CGFloat(sign) * 0.36, duration: 0.08),
+                                   .rotate(byAngle: CGFloat(-sign) * 0.36, duration: 0.08)]),
+                        withKey: "walk-cycle")
+            }
+        }
+    }
+
+    func proofTriggerHit(_ node: SKNode) {
+        let flash = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.7)
+        flash.name = "hit-flash"
+        flash.fillColor = .white.withAlphaComponent(0.72)
+        flash.strokeColor = .clear
+        flash.zPosition = 3
+        node.addChild(flash)
+        flash.run(.sequence([.fadeOut(withDuration: 0.12), .removeFromParent()]), withKey: "hit-flash")
+    }
+
+    func proofTriggerDeath(_ node: SKNode) {
+        node.run(.sequence([.scale(to: 0.18, duration: 0.24),
+                            .fadeOut(withDuration: 0.24),
+                            .rotate(byAngle: 0.35, duration: 0.24)]), withKey: "unit-death")
+    }
+
+    func proofTriggerAttack(_ node: SKNode, sourceID: Int) {
+        if let body = node.childNode(withName: "//body") {
+            body.run(.sequence([.scale(to: 1.08, duration: 0.075),
+                                .scale(to: 0.90, duration: 0.055),
+                                .scale(to: 1.0, duration: 0.13)]), withKey: "attack-pulse")
+        }
+        if let weapon = node.childNode(withName: "//weapon-arm") {
+            weapon.run(.sequence([.rotate(byAngle: 0.82, duration: 0.07),
+                                  .rotate(byAngle: -0.82, duration: 0.11)]), withKey: "weapon-swing")
+        }
+        if let turret = node.childNode(withName: "//turret") {
+            turret.run(.sequence([.scale(to: 1.12, duration: 0.045),
+                                  .scale(to: 1.0, duration: 0.10)]), withKey: "turret-recoil")
+        }
+        _ = sourceID
     }
 
     func proofBeginAttack(sourceID: Int) {
