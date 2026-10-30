@@ -7,7 +7,7 @@ final class ArenaScene: SKScene {
     var reduceMotion = false
     var highContrast = false
     var hapticsEnabled = true
-    var themeIndex = 0
+    var themeIndex = 0\n    var debugNavigation = false\n    private var debugLayer: SKNode?
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
     private var lastAttackClock: [Int: Double] = [:]
@@ -165,6 +165,13 @@ final class ArenaScene: SKScene {
                             .removeFromParent()
                         ]), withKey: "collapse")
                     }
+                } else if !reduceMotion && !thermalLimited {
+                    // Troops/buildings receive a short readable death animation instead of vanishing.
+                    node.run(.sequence([
+                        .group([.scale(to: 0.18, duration: 0.24), .fadeOut(withDuration: 0.24),
+                                .rotate(byAngle: entityNodes[id] == nil ? 0 : 0.35, duration: 0.24)]),
+                        .removeFromParent()
+                    ]), withKey: "unit-death")
                 } else { node.removeFromParent() }
             }
             entityNodes.removeValue(forKey: id)
@@ -260,6 +267,8 @@ final class ArenaScene: SKScene {
                 }
             }
         }
+        if debugNavigation { drawDebugOverlay(model) }
+        else { debugLayer?.removeFromParent(); debugLayer = nil }
         if model.selectedCard != nil {
             if ghost == nil {
                 let node = SKShapeNode(circleOfRadius: min(tileWidth, tileHeight) * 0.75)
@@ -272,6 +281,52 @@ final class ArenaScene: SKScene {
             ghost?.isHidden = true
             gridPreview?.isHidden = true
         }
+    }
+
+    private func drawDebugOverlay(_ model: BattleModel) {
+        debugLayer?.removeFromParent()
+        let layer = SKNode()
+        layer.name = "navigation-debug-overlay"
+        layer.zPosition = 900
+        for item in model.debugOverlayItems() {
+            let origin = CGPoint(x: item.x * Double(tileWidth), y: item.y * Double(tileHeight))
+            if item.aggroRange > 0 {
+                let aggro = SKShapeNode(circleOfRadius: CGFloat(item.aggroRange) * tileWidth)
+                aggro.position = origin; aggro.fillColor = UIColor.systemCyan.withAlphaComponent(0.035)
+                aggro.strokeColor = UIColor.systemCyan.withAlphaComponent(0.38); aggro.lineWidth = 0.8
+                layer.addChild(aggro)
+            }
+            if item.attackRange > 0 {
+                let attack = SKShapeNode(circleOfRadius: CGFloat(item.attackRange) * tileWidth)
+                attack.position = origin; attack.fillColor = .clear
+                attack.strokeColor = UIColor.systemOrange.withAlphaComponent(0.55); attack.lineWidth = 1
+                layer.addChild(attack)
+            }
+            if item.path.count > 1 {
+                let route = CGMutablePath()
+                route.move(to: CGPoint(x: (Double(item.path[0].x) + 0.5) * Double(tileWidth),
+                                       y: (Double(item.path[0].y) + 0.5) * Double(tileHeight)))
+                for cell in item.path.dropFirst() {
+                    route.addLine(to: CGPoint(x: (Double(cell.x) + 0.5) * Double(tileWidth),
+                                              y: (Double(cell.y) + 0.5) * Double(tileHeight)))
+                }
+                let line = SKShapeNode(path: route)
+                line.strokeColor = UIColor.systemGreen.withAlphaComponent(0.8)
+                line.lineWidth = 1.5; line.glowWidth = 1
+                layer.addChild(line)
+            }
+            if let tx = item.targetX, let ty = item.targetY {
+                let linePath = CGMutablePath()
+                linePath.move(to: origin)
+                linePath.addLine(to: CGPoint(x: tx * Double(tileWidth), y: ty * Double(tileHeight)))
+                let line = SKShapeNode(path: linePath)
+                line.strokeColor = UIColor.systemPink.withAlphaComponent(0.8)
+                line.lineWidth = 1.1; line.dashPattern = [4, 3]
+                layer.addChild(line)
+            }
+        }
+        addChild(layer)
+        debugLayer = layer
     }
 
     private func addDebris(at point: CGPoint) {
