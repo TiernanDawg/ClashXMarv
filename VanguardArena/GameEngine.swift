@@ -976,7 +976,9 @@ final class BattleModel: ObservableObject {
             cached = CachedArenaPath(targetID: target.id, targetCell: targetCell,
                                      navigationRevision: navigationRevision, cells: cells, cursor: min(1, max(0, cells.count - 1)))
         }
-        guard var path = cached, !path.cells.isEmpty else { return (entity.x, entity.y) }
+        guard var path = cached else { return (entity.x, entity.y) }
+        navigationPaths[entity.id] = path
+        guard !path.cells.isEmpty else { return (entity.x, entity.y) }
         // Advance the cached cursor as the unit enters successive grid cells.
         while path.cursor < path.cells.count - 1 && startCell == path.cells[path.cursor] { path.cursor += 1 }
         navigationPaths[entity.id] = path
