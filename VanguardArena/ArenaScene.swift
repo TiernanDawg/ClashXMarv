@@ -768,7 +768,10 @@ final class ArenaScene: SKScene {
         shadow.fillColor = .black.withAlphaComponent(0.32); shadow.strokeColor = .clear
         root.addChild(shadow)
         let visual = SKNode()
-        visual.name = "visual"; visual.yScale = entity.team == .blue ? 1 : -1
+        // Keep the sprite upright; mirror only its horizontal facing for the red side.
+        visual.name = "visual"
+        visual.yScale = 1
+        visual.xScale = entity.team == .blue ? 1 : -1
         root.addChild(visual)
 
         if entity.tower {
