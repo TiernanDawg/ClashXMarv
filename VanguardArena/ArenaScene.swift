@@ -248,7 +248,10 @@ final class ArenaScene: SKScene {
                 body.run(.sequence([.scale(to: 1.18, duration: 0.055), .scale(to: 1.0, duration: 0.10)]), withKey: "attack-squash")
             }
             lastAttackClock[entity.id] = entity.attackClock
-            node.position = newPosition
+            if hypot(Double(node.position.x - newPosition.x), Double(node.position.y - newPosition.y)) > 0.01 {
+                node.removeAction(forKey: "fixed-step-interpolation")
+                node.run(.move(to: newPosition, duration: Balance.tick), withKey: "fixed-step-interpolation")
+            }
             node.zPosition = CGFloat(entity.y)
             node.alpha = (CardCatalog.byID[entity.cardID]?.behavior.contains(.invisible) == true && !entity.hasAttacked) ? 0.28 : 1
             if let badge = node.childNode(withName: "hp") as? SKShapeNode {
@@ -302,13 +305,13 @@ final class ArenaScene: SKScene {
         }
         // Tower lock indicators stay attached to the actual target and are reused.
         var activeLockTargets = Set<Int>()
-        for item in model.debugOverlayItems() where item.isTower {
-            guard let targetID = item.targetID, let targetNode = entityNodes[targetID] else { continue }
-            activeLockTargets.insert(targetID)
+        for lock in model.towerTargetLocks() {
+            guard let targetNode = entityNodes[lock.targetID] else { continue }
+            activeLockTargets.insert(lock.targetID)
             if targetNode.childNode(withName: "target-lock") == nil {
                 let ring = SKShapeNode(circleOfRadius: tileWidth * 0.72)
                 ring.name = "target-lock"; ring.fillColor = .clear
-                ring.strokeColor = (item.team == .blue ? UIColor.systemBlue : UIColor.systemRed).withAlphaComponent(0.98)
+                ring.strokeColor = (lock.team == .blue ? UIColor.systemBlue : UIColor.systemRed).withAlphaComponent(0.98)
                 ring.lineWidth = 1.8; ring.glowWidth = 2; ring.zPosition = 30
                 targetNode.addChild(ring)
                 ring.run(.repeatForever(.sequence([.scale(to: 1.14, duration: 0.32), .scale(to: 0.92, duration: 0.32)])))
@@ -795,6 +798,12 @@ final class ArenaScene: SKScene {
         addChild(node)
     }
 
+    func proofBeginAttack(sourceID: Int) {
+        guard let source = entityNodes[sourceID] else { return }
+        source.childNode(withName: "//body")?.run(.sequence([.scale(to: 1.18, duration: 0.12), .scale(to: 1.04, duration: 0.08)]))
+        source.childNode(withName: "//weapon-arm")?.run(.rotate(byAngle: -0.45, duration: 0.12))
+    }
+
     func proofAddAttack(style: String, sourceID: Int, from: CGPoint, to: CGPoint) {
         addAttackEffect(BattleEvent(x: Double(to.x), y: Double(to.y), text: "PROOF",
                                     born: 0, sourceX: Double(from.x), sourceY: Double(from.y),
@@ -810,6 +819,10 @@ final class ArenaScene: SKScene {
         let point = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
         addRubble(at: point)
         addDebris(at: point)
+        if let tower = entityNodes.values.first(where: { hypot(Double($0.position.x - point.x), Double($0.position.y - point.y)) < Double(tileWidth) }) {
+            tower.run(.sequence([.group([.scale(to: 0.12, duration: 0.34), .fadeOut(withDuration: 0.34),
+                                         .rotate(byAngle: 0.42, duration: 0.34)]), .removeFromParent()]))
+        }
         addTowerDestructionEffect(BattleEvent(x: x, y: y, text: "TOWER DESTROYED",
                                               born: 0, style: "tower-destroyed", team: destroyedTeam))
         let banner = SKLabelNode(text: "TOWER DESTROYED")
