@@ -22,4 +22,18 @@ final class BattleSelfTestTests: XCTestCase {
             }
         }
     }
+    func testPracticeScenariosAreRepeatableAndIsolated() {
+        let deck = CardCatalog.starterDeck
+        let dummy = BattleModel(deck: deck, seed: 42, isPractice: true, practiceScenario: .targetDummy)
+        XCTAssertTrue(dummy.isPractice)
+        XCTAssertEqual(dummy.practiceScenario, .targetDummy)
+        XCTAssertEqual(dummy.entities.filter { $0.tower && $0.maxHP >= 100000 }.count, 1)
+
+        let defense = BattleModel(deck: deck, seed: 42, isPractice: true, practiceScenario: .enemyPush)
+        XCTAssertEqual(defense.practiceScenario, .enemyPush)
+        XCTAssertEqual(defense.entities.filter { $0.team == .red && !$0.tower }.count, 3)
+
+        let standard = BattleModel(deck: deck, seed: 42, isPractice: true, practiceScenario: .standard)
+        XCTAssertEqual(standard.entities.filter { $0.tower }.count, 6)
+    }
 }
