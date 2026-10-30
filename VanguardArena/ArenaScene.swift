@@ -799,6 +799,8 @@ final class ArenaScene: SKScene {
     // Deterministic visual-proof hooks used only by the simulator's XCTest renderer.
     func proofPrepareContactSheet() {
         removeAllChildren()
+        transientEffects.removeAll()
+        installCamera()
         backgroundColor = UIColor(red: 0.075, green: 0.09, blue: 0.14, alpha: 1)
     }
 
@@ -809,6 +811,10 @@ final class ArenaScene: SKScene {
         let node = makeNode(entity)
         node.removeAction(forKey: "deploy-pop")
         node.setScale(1)
+        // The audit sheet is for silhouette/palette, not HUD health bars.
+        for child in node.children where child.name == "hp" || child.position.y > tileHeight * 0.72 {
+            child.removeFromParent()
+        }
         node.position = CGPoint(x: CGFloat(x) * tileWidth, y: CGFloat(y) * tileHeight)
         addChild(node)
     }
