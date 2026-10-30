@@ -7,7 +7,9 @@ final class ArenaScene: SKScene {
     var reduceMotion = false
     var highContrast = false
     var hapticsEnabled = true
-    var themeIndex = 0\n    var debugNavigation = false\n    private var debugLayer: SKNode?
+    var themeIndex = 0
+    var debugNavigation = false
+    private var debugLayer: SKNode?
     private var lastHP: [Int: Double] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
     private var lastAttackClock: [Int: Double] = [:]
