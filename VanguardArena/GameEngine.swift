@@ -184,13 +184,12 @@ final class BattleModel: ObservableObject {
             entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: .red, x: 9, y: 19.2, hp: 100000, maxHP: 100000, tower: true, awake: true))
             events.append(BattleEvent(x: 9, y: 19.2, text: "TARGET DUMMY · 100K HP", born: 0))
         } else if isPractice && practiceScenario == .enemyPush {
-            let push = ["avenger-rookies", "ghost-ryder", "doombot"]
-            for (offset, id) in push.enumerated() {
-                if let card = CardCatalog.byID[id] {
-                    entitySequence += 1
-                    let hp = card.hp * Balance.levelMultiplier(botLevel)
-                    entities.append(BattleEntity(id: entitySequence, cardID: id, team: .red, x: 6.5 + Double(offset) * 2.5, y: 21.5 + Double(offset % 2), hp: hp, maxHP: hp, levelMultiplier: Balance.levelMultiplier(botLevel)))
-                }
+            let push = ["Knight", "Hog Rider", "Bomber"].compactMap { analog in CardCatalog.all.first { $0.analog == analog } }
+            for (offset, card) in push.enumerated() {
+                entitySequence += 1
+                let multiplier = Balance.levelMultiplier(botLevel)
+                let hp = card.hp * multiplier
+                entities.append(BattleEntity(id: entitySequence, cardID: card.id, team: .red, x: 6.5 + Double(offset) * 2.5, y: 21.5 + Double(offset % 2), hp: hp, maxHP: hp, levelMultiplier: multiplier))
             }
             events.append(BattleEvent(x: 9, y: 22, text: "ENEMY PUSH INCOMING", born: 0))
         }
