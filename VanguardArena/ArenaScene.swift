@@ -437,6 +437,19 @@ final class ArenaScene: SKScene {
                 bolt.position = from; bolt.fillColor = color; bolt.strokeColor = .white; bolt.lineWidth = 0.8; bolt.glowWidth = 3; bolt.zPosition = 860
                 addChild(bolt)
                 bolt.run(.sequence([.move(to: to, duration: 0.15), .fadeOut(withDuration: 0.06), .removeFromParent()]))
+                let impact = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.20))
+                impact.position = to
+                impact.fillColor = color.withAlphaComponent(0.30)
+                impact.strokeColor = .white.withAlphaComponent(0.9)
+                impact.lineWidth = 1.1
+                impact.glowWidth = 3
+                impact.zPosition = 865
+                addChild(impact)
+                impact.run(.sequence([
+                    .wait(forDuration: 0.14),
+                    .group([.scale(to: 1.9, duration: 0.12), .fadeOut(withDuration: 0.12)]),
+                    .removeFromParent()
+                ]))
             } else {
                 let flash = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.25))
                 flash.position = to; flash.fillColor = UIColor.systemPurple.withAlphaComponent(0.24); flash.strokeColor = .systemPurple; flash.lineWidth = 2; flash.zPosition = 855
