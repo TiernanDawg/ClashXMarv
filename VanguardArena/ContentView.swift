@@ -641,7 +641,17 @@ struct RootView: View {
                     }
                 } label: { Image(systemName: "face.smiling").frame(width: 42, height: 42).background(panel, in: Circle()) }.accessibilityLabel("Send emote")
             }.padding(.horizontal, 12)
-            if let battle, !battle.banner.isEmpty {
+            if let battle, battle.elapsed < 3 {
+                Text(battle.elapsed < 1 ? "3" : (battle.elapsed < 2 ? "2" : "1"))
+                    .font(.system(size: 27, weight: .black, design: .rounded))
+                    .tracking(3).foregroundStyle(gold)
+                    .scaleEffect(1.08)
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(.spring(response: 0.24, dampingFraction: 0.52), value: Int(battle.elapsed))
+                    .padding(.vertical, 4)
+            } else if let battle, battle.elapsed < 3.55 {
+                Text("FIGHT!").font(.caption.bold()).tracking(2).foregroundStyle(gold).padding(.vertical, 4)
+            } else if let battle, !battle.banner.isEmpty {
                 Text(battle.banner).font(.caption.bold()).tracking(2).foregroundStyle(gold).padding(.vertical, 4)
             }
             if let battle { Text(battle.isPractice ? "PRACTICE · NO REWARDS" : "AI RIVAL · \(battle.difficultyLabel) · LEVEL \(battle.botLevel)").font(.system(size: 9, weight: .black)).tracking(1).foregroundStyle(.white.opacity(0.52)) }
