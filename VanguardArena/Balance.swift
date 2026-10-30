@@ -10,7 +10,14 @@ enum Balance {
     static let startElixir = 5.0
     static let maxElixir = 10.0
     static let deployDelay = 1.0
-    static let sightRange = 5.5\n    // Princess towers have higher sustained pressure; the king tower hits harder but fires slower.\n    static let princessTowerDamage = 95.0\n    static let princessTowerInterval = 0.90\n    static let princessTowerRange = 6.4\n    static let kingTowerDamage = 145.0\n    static let kingTowerInterval = 1.10\n    static let kingTowerRange = 7.2
+    static let sightRange = 5.5
+    // Princess towers have higher sustained pressure; the king tower hits harder but fires slower.
+    static let princessTowerDamage = 95.0
+    static let princessTowerInterval = 0.90
+    static let princessTowerRange = 6.4
+    static let kingTowerDamage = 145.0
+    static let kingTowerInterval = 1.10
+    static let kingTowerRange = 7.2
     static func levelMultiplier(_ level: Int) -> Double { pow(1.10, Double(max(1, min(13, level)) - 9)) }
     static func elixirInterval(elapsed: Double, overtime: Bool) -> Double {
         if overtime && elapsed >= 240 { return 0.93 }
