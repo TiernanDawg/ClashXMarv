@@ -102,6 +102,154 @@ final class VisualProofTests: XCTestCase {
         }
     }
 
+    private func renderedCardAudit() -> (masks: [[Bool]], palettes: [(CGFloat, CGFloat, CGFloat)]) {
+        let columns = 9
+        let cellWidth = 42
+        let cellHeight = 66
+        let canvas = CGSize(width: columns * cellWidth, height: 10 * cellHeight)
+        let scene = SKScene(size: canvas)
+        scene.backgroundColor = .white
+        let view = SKView(frame: CGRect(origin: .zero, size: canvas))
+        view.contentScaleFactor = 1
+        view.ignoresSiblingOrder = true
+        view.presentScene(scene)
+
+        for (index, card) in CardCatalog.all.enumerated() {
+            let row = index / columns
+            let column = index % columns
+            let sprite = CardSpriteFactory.make(card: card, team: .blue,
+                size: CGSize(width: boardSize.width / 18 * 1.15,
+                             height: boardSize.height / 32 * 1.65))
+            func flatten(_ node: SKNode) {
+                if let shape = node as? SKShapeNode {
+                    shape.fillColor = .black
+                    shape.strokeColor = .black
+                    shape.glowWidth = 0
+                }
+                for child in node.children { flatten(child) }
+            }
+            flatten(sprite)
+            sprite.position = CGPoint(x: CGFloat(column * cellWidth + cellWidth / 2),
+                                      y: canvas.height - CGFloat(row * cellHeight + cellHeight / 2))
+            scene.addChild(sprite)
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        guard let texture = view.texture(from: scene) else {
+            XCTFail("SpriteKit could not render the 91-card silhouette audit")
+            return ([], [])
+        }
+        let image = texture.cgImage()
+        let width = image.width, height = image.height
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 255, count: height * bytesPerRow)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        pixels.withUnsafeMutableBytes { buffer in
+            if let context = CGContext(data: buffer.baseAddress, width: width, height: height,
+                bitsPerComponent: 8, bytesPerRow: bytesPerRow, space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                context.setFillColor(UIColor.white.cgColor)
+                context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+                context.interpolationQuality = .none
+                context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            }
+        }
+
+        var masks: [[Bool]] = []
+        var palettes: [(CGFloat, CGFloat, CGFloat)] = []
+        for index in CardCatalog.all.indices {
+            let row = index / columns, column = index % columns
+            var mask: [Bool] = []
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, count: CGFloat = 0
+            for y in (row * cellHeight)..<min(height, (row + 1) * cellHeight) {
+                for x in (column * cellWidth)..<min(width, (column + 1) * cellWidth) {
+                    let offset = y * bytesPerRow + x * 4
+                    let r = CGFloat(pixels[offset]) / 255
+                    let g = CGFloat(pixels[offset + 1]) / 255
+                    let b = CGFloat(pixels[offset + 2]) / 255
+                    let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    mask.append(luminance < 0.35)
+                    if luminance > 0.18 && luminance < 0.94 {
+                        red += r; green += g; blue += b; count += 1
+                    }
+                }
+            }
+            masks.append(mask)
+            palettes.append(count > 0 ? (red / count, green / count, blue / count) : (0, 0, 0))
+        }
+        return (masks, palettes)
+    }
+
+    func testEveryCardHasDistinctReadableSilhouetteAndPalette() {
+        XCTAssertEqual(CardCatalog.all.count, 91)
+        let audit = renderedCardAudit()
+        XCTAssertEqual(audit.masks.count, 91)
+        for first in 0..<audit.masks.count {
+            for second in (first + 1)..<audit.masks.count {
+                let a = audit.masks[first], b = audit.masks[second]
+                let intersection = zip(a, b).filter { $0 && $1 }.count
+                let union = zip(a, b).filter { $0 || $1 }.count
+                let silhouetteSimilarity = union == 0 ? 1.0 : Double(intersection) / Double(union)
+                let p = audit.palettes[first], q = audit.palettes[second]
+                let paletteDistance = sqrt(pow(Double(p.0 - q.0), 2) +
+                                           pow(Double(p.1 - q.1), 2) +
+                                           pow(Double(p.2 - q.2), 2))
+                XCTAssertLessThan(silhouetteSimilarity, 0.965,
+                    "Cards \(CardCatalog.all[first].name) and \(CardCatalog.all[second].name) have near-identical in-game silhouettes (IoU \(silhouetteSimilarity))")
+                if paletteDistance < 0.055 {
+                    XCTAssertLessThan(silhouetteSimilarity, 0.88,
+                        "Cards \(CardCatalog.all[first].name) and \(CardCatalog.all[second].name) share both palette and silhouette")
+                }
+            }
+        }
+    }
+
+    func testEveryCardHasItsRequiredAnimationCoverage() {
+        XCTAssertEqual(CardCatalog.all.count, 91)
+        for (index, card) in CardCatalog.all.enumerated() {
+            let scene = ArenaScene(size: boardSize)
+            scene.scaleMode = .resizeFill
+            scene.reduceMotion = false
+            scene.thermalLimited = false
+            let view = SKView(frame: CGRect(origin: .zero, size: boardSize))
+            view.presentScene(scene)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.015))
+            let nodeID = 50_000 + index
+            let node = scene.proofCreateAnimationNode(card, team: .blue, id: nodeID)
+            XCTAssertNotNil(node.action(forKey: "deploy-pop"), "\(card.name): deploy pop missing")
+            let body = node.childNode(withName: "//body")
+            XCTAssertNotNil(body?.action(forKey: "idle-bob"), "\(card.name): idle animation missing")
+            scene.proofTriggerWalk(node)
+            if card.kind != .spell {
+                XCTAssertNotNil(node.childNode(withName: "//leg-left")?.action(forKey: "walk-cycle"),
+                                "\(card.name): walk cycle missing")
+            }
+            scene.proofTriggerAttack(node, sourceID: nodeID)
+            XCTAssertNotNil(body?.action(forKey: "attack-pulse"), "\(card.name): windup/strike/recovery missing")
+            scene.proofTriggerHit(node)
+            XCTAssertNotNil(node.childNode(withName: "//hit-flash")?.action(forKey: "hit-flash"),
+                             "\(card.name): hit flash missing")
+            scene.proofTriggerDeath(node)
+            XCTAssertNotNil(node.action(forKey: "unit-death"), "\(card.name): death animation missing")
+
+            if card.kind == .spell {
+                scene.proofAddSpell(style: "spell-telegraph", x: 8, y: 12, radius: 2.5)
+                scene.proofAddSpell(style: "spell-impact", x: 8, y: 12, radius: 2.5)
+                XCTAssertTrue(scene.proofHasSpellImpactShake,
+                              "\(card.name): spell impact screen shake missing")
+            } else if card.behavior.contains(.ranged) || card.range > 1.2 {
+                scene.proofAddAttack(style: "projectile", sourceID: nodeID,
+                                     from: CGPoint(x: 8, y: 12), to: CGPoint(x: 10, y: 14))
+                XCTAssertTrue(scene.proofHasProjectileEffect,
+                              "\(card.name): ranged projectile missing")
+            } else {
+                scene.proofAddAttack(style: "melee", sourceID: nodeID,
+                                     from: CGPoint(x: 8, y: 12), to: CGPoint(x: 9, y: 12))
+                XCTAssertTrue(scene.proofHasMeleeSwing,
+                              "\(card.name): melee swing/lunge missing")
+            }
+        }
+    }
+
     func testGenerateEveryCardBlueAndRedContactSheets() {
         let blue = contactSheet(team: .blue)
         attach(blue, name: "Card-Contact-Sheet-3x-Blue.png")
