@@ -312,6 +312,7 @@ struct RootView: View {
         }
     }
     @State private var practiceStartingElixir = 5.0
+    @State private var practiceScenario: PracticeScenario = .standard
     private var practiceLab: some View {
         VStack(alignment: .leading, spacing: 18) {
             header("Practice Lab", back: .home)
@@ -319,6 +320,12 @@ struct RootView: View {
                 .font(.subheadline).foregroundStyle(.white.opacity(0.68)).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 18)
             VStack(alignment: .leading, spacing: 12) {
+                Text("TRAINING SCENARIO").font(.caption.bold()).tracking(1.2).foregroundStyle(accent)
+                Picker("Scenario", selection: $practiceScenario) {
+                    ForEach(PracticeScenario.allCases) { scenario in Text(scenario.rawValue).tag(scenario) }
+                }.pickerStyle(.segmented)
+                Text(practiceScenario == .targetDummy ? "Stationary 100,000 HP target for damage and spell testing." : (practiceScenario == .enemyPush ? "Repeatable enemy push approaches your side. Test defensive counters." : "Standard AI match with configurable opening elixir."))
+                    .font(.caption).foregroundStyle(.white.opacity(0.58))
                 HStack { Text("Starting elixir"); Spacer(); Text("\(Int(practiceStartingElixir)) / 10").font(.headline.monospacedDigit()).foregroundStyle(gold) }
                 Slider(value: $practiceStartingElixir, in: 1...10, step: 1).tint(accent)
                 Text("Choose a starting amount to rehearse opening pushes or defensive responses. Elixir regenerates normally after the battle begins.")
@@ -333,7 +340,7 @@ struct RootView: View {
             Spacer()
             Button {
                 profile.update { p in var meta = p.meta ?? MetaProgression(); meta.battleSnapshot = nil; p.meta = meta }
-                let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies, startingElixir: practiceStartingElixir, isPractice: true)
+                let model = BattleModel(deck: profile.profile.selectedDeck, cardLevels: profile.profile.levels, trophies: profile.profile.trophies, startingElixir: practiceStartingElixir, isPractice: true, practiceScenario: practiceScenario)
                 installBattle(model, savedResult: false)
             } label: { Text("START PRACTICE MATCH").font(.headline.bold()).frame(maxWidth: .infinity).frame(height: 54).background(accent, in: RoundedRectangle(cornerRadius: 15)).foregroundStyle(ink) }
                 .padding(.horizontal, 18).padding(.bottom, 18)
