@@ -235,7 +235,8 @@ final class ArenaScene: SKScene {
                     body.run(.sequence([.scaleX(to: 0.91, duration: 0.07), .scaleX(to: 1.05, duration: 0.08), .scaleX(to: 1.0, duration: 0.07)]), withKey: "walk-squash")
                 }
                 if let visual = node.childNode(withName: "visual") {
-                    visual.xScale = newPosition.x < oldPosition.x ? -1 : 1
+                    let directionScale: CGFloat = newPosition.x < oldPosition.x ? -1 : 1
+                    visual.xScale = (entity.team == .red ? -1 : 1) * directionScale
                 }
                 for (name, sign) in [("leg-left", 1.0), ("leg-right", -1.0)] {
                     if let leg = node.childNode(withName: "//" + name) {
