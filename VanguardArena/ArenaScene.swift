@@ -11,6 +11,7 @@ final class ArenaScene: SKScene {
     var debugNavigation = false
     private var debugLayer: SKNode?
     private var renderedEventIDs = Set<UUID>()
+    private var transientEffects: [SKNode] = []
     private var lastHP: [Int: Double] = [:]
     private var lastTeams: [Int: Team] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
@@ -70,6 +71,7 @@ final class ArenaScene: SKScene {
         ghost = nil
         gridPreview = nil
         removeAllChildren()
+        transientEffects.removeAll()
         entityNodes.removeAll()
         lastHP.removeAll()
         lastTeams.removeAll()
@@ -374,27 +376,40 @@ final class ArenaScene: SKScene {
         }
     }
 
+    /// Keep short-lived particles/projectiles bounded so busy fights cannot grow the scene graph.
+    private func addTransientEffect(_ node: SKNode) {
+        transientEffects.removeAll { $0.parent == nil }
+        if transientEffects.count >= 80 {
+            let oldest = transientEffects.removeFirst()
+            oldest.removeAllActions()
+            oldest.removeFromParent()
+        }
+        node.name = "transient-effect"
+        addChild(node)
+        transientEffects.append(node)
+    }
+
     private func addTowerDestructionEffect(_ event: BattleEvent) {
         let point = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight)
         let winnerColor: UIColor = event.team == .blue ? .systemRed : .systemBlue
         let flash = SKShapeNode(circleOfRadius: tileWidth * 0.55)
         flash.position = point; flash.fillColor = .white.withAlphaComponent(0.85)
         flash.strokeColor = winnerColor; flash.lineWidth = 3; flash.glowWidth = 9; flash.zPosition = 960
-        addChild(flash)
+        addTransientEffect(flash)
         flash.run(.sequence([.group([.scale(to: 4.2, duration: 0.34), .fadeOut(withDuration: 0.34)]), .removeFromParent()]))
         for index in 0..<12 {
             let angle = CGFloat(index) * (.pi * 2 / 12)
             let shard = SKShapeNode(rectOf: CGSize(width: tileWidth * 0.16, height: tileHeight * 0.12), cornerRadius: 1)
             shard.position = point; shard.fillColor = index.isMultiple(of: 2) ? .systemYellow : winnerColor
             shard.strokeColor = UIColor.black.withAlphaComponent(0.5); shard.lineWidth = 0.8; shard.zPosition = 965
-            addChild(shard)
+            addTransientEffect(shard)
             shard.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 1.65, y: sin(angle) * tileHeight * 1.65, duration: 0.42),
                                          .rotate(byAngle: angle * 2, duration: 0.42), .fadeOut(withDuration: 0.42)]), .removeFromParent()]))
         }
         for index in 0..<5 {
             let smoke = SKShapeNode(circleOfRadius: tileWidth * (0.15 + CGFloat(index) * 0.025))
             smoke.position = point; smoke.fillColor = UIColor(white: 0.22, alpha: 0.48); smoke.strokeColor = .clear; smoke.zPosition = 955
-            addChild(smoke)
+            addTransientEffect(smoke)
             smoke.run(.sequence([.group([.moveBy(x: CGFloat(index - 2) * tileWidth * 0.26, y: tileHeight * CGFloat(1 + index % 2), duration: 0.55),
                                          .scale(to: 2.4, duration: 0.55), .fadeOut(withDuration: 0.55)]), .removeFromParent()]))
         }
@@ -410,7 +425,7 @@ final class ArenaScene: SKScene {
         let crown = SKShapeNode(path: crownPath)
         crown.position = point; crown.fillColor = .systemYellow; crown.strokeColor = winnerColor
         crown.lineWidth = 1.6; crown.glowWidth = 3; crown.zPosition = 980
-        addChild(crown)
+        addTransientEffect(crown)
         crown.run(.sequence([.group([.move(to: CGPoint(x: size.width * 0.5, y: size.height - tileHeight * 0.7), duration: 0.72),
                                      .scale(to: 0.45, duration: 0.72), .rotate(byAngle: .pi * 2, duration: 0.72)]),
                             .fadeOut(withDuration: 0.16), .removeFromParent()]))
@@ -476,7 +491,7 @@ final class ArenaScene: SKScene {
             let puff = SKShapeNode(circleOfRadius: max(1.5, tileWidth * 0.075))
             puff.position = point
             puff.fillColor = index.isMultiple(of: 2) ? UIColor.white.withAlphaComponent(0.85) : tint.withAlphaComponent(0.72)
-            puff.strokeColor = .clear; puff.zPosition = 940; addChild(puff)
+            puff.strokeColor = .clear; puff.zPosition = 940; addTransientEffect(puff)
             let angle = CGFloat(index) * (.pi * 2 / 7)
             puff.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 0.42,
                                                 y: sin(angle) * tileHeight * 0.42, duration: 0.22),
@@ -493,7 +508,7 @@ final class ArenaScene: SKScene {
             piece.fillColor = palette[index % palette.count]
             piece.strokeColor = .clear
             piece.zPosition = 950
-            addChild(piece)
+            addTransientEffect(piece)
             let dx = CGFloat((index % 4) - 2) * tileWidth * 0.42
             let dy = CGFloat((index / 4) + 1) * tileHeight * 0.5
             piece.run(.sequence([.group([.moveBy(x: dx, y: dy, duration: 0.28), .rotate(byAngle: CGFloat(index) * 1.1, duration: 0.28), .fadeOut(withDuration: 0.28)]), .removeFromParent()]))
@@ -572,7 +587,7 @@ final class ArenaScene: SKScene {
             path.addQuadCurve(to: CGPoint(x: to.x + tileWidth * 0.48, y: to.y + tileHeight * 0.16), control: CGPoint(x: to.x + tileWidth * 0.34, y: to.y + tileHeight * 0.64))
             let slash = SKShapeNode(path: path)
             slash.strokeColor = .white.withAlphaComponent(0.95); slash.lineWidth = max(2, tileWidth * 0.12); slash.glowWidth = 3; slash.zPosition = 850
-            addChild(slash)
+            addTransientEffect(slash)
             slash.run(.sequence([.group([.fadeOut(withDuration: 0.18), .scale(to: 1.35, duration: 0.18)]), .removeFromParent()]))
         } else {
             let path = CGMutablePath(); path.move(to: from); path.addLine(to: to)
@@ -580,7 +595,7 @@ final class ArenaScene: SKScene {
             trail.strokeColor = color.withAlphaComponent(style == "beam" ? 0.92 : 0.60)
             trail.lineWidth = style == "beam" ? max(3, tileWidth * 0.22) : max(1.5, tileWidth * 0.10)
             trail.glowWidth = style == "beam" ? 5 : 2; trail.zPosition = 840
-            addChild(trail)
+            addTransientEffect(trail)
             trail.run(.sequence([.fadeOut(withDuration: style == "beam" ? 0.24 : 0.18), .removeFromParent()]))
             if style == "projectile" {
                 let boltPath = CGMutablePath()
@@ -592,7 +607,7 @@ final class ArenaScene: SKScene {
                 let bolt = SKShapeNode(path: boltPath)
                 bolt.position = from; bolt.fillColor = color; bolt.strokeColor = .white
                 bolt.lineWidth = 1; bolt.glowWidth = 4; bolt.zPosition = 860
-                addChild(bolt)
+                addTransientEffect(bolt)
                 let travel = CGPoint(x: to.x - from.x, y: to.y - from.y)
                 bolt.zRotation = atan2(travel.y, travel.x) - .pi / 2
                 bolt.run(.group([.move(to: to, duration: 0.17), .rotate(byAngle: .pi * 0.7, duration: 0.17)]))
@@ -600,7 +615,7 @@ final class ArenaScene: SKScene {
                 let muzzle = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.18))
                 muzzle.position = from; muzzle.fillColor = .systemYellow.withAlphaComponent(0.8)
                 muzzle.strokeColor = .white; muzzle.glowWidth = 4; muzzle.zPosition = 861
-                addChild(muzzle)
+                addTransientEffect(muzzle)
                 muzzle.run(.sequence([.group([.scale(to: 1.9, duration: 0.08), .fadeOut(withDuration: 0.08)]), .removeFromParent()]))
                 let impact = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.20))
                 impact.position = to
@@ -609,7 +624,7 @@ final class ArenaScene: SKScene {
                 impact.lineWidth = 1.1
                 impact.glowWidth = 3
                 impact.zPosition = 865
-                addChild(impact)
+                addTransientEffect(impact)
                 impact.run(.sequence([
                     .wait(forDuration: 0.17),
                     .group([.scale(to: 2.1, duration: 0.14), .fadeOut(withDuration: 0.14)]),
@@ -618,7 +633,7 @@ final class ArenaScene: SKScene {
                 for index in 0..<5 {
                     let spark = SKShapeNode(circleOfRadius: max(1, tileWidth * 0.045))
                     spark.position = to; spark.fillColor = index.isMultiple(of: 2) ? .systemYellow : .white
-                    spark.strokeColor = .clear; spark.zPosition = 866; addChild(spark)
+                    spark.strokeColor = .clear; spark.zPosition = 866; addTransientEffect(spark)
                     let angle = CGFloat(index) * (.pi * 2 / 5)
                     spark.run(.sequence([.group([.moveBy(x: cos(angle) * tileWidth * 0.28,
                                                          y: sin(angle) * tileHeight * 0.28, duration: 0.18),
@@ -627,7 +642,7 @@ final class ArenaScene: SKScene {
             } else {
                 let flash = SKShapeNode(circleOfRadius: max(3, tileWidth * 0.25))
                 flash.position = to; flash.fillColor = UIColor.systemPurple.withAlphaComponent(0.24); flash.strokeColor = .systemPurple; flash.lineWidth = 2; flash.zPosition = 855
-                addChild(flash)
+                addTransientEffect(flash)
                 flash.run(.sequence([.scale(to: 1.55, duration: 0.12), .fadeOut(withDuration: 0.12), .removeFromParent()]))
             }
         }
@@ -661,7 +676,7 @@ final class ArenaScene: SKScene {
         ring.lineWidth = style == "spell-telegraph" ? 1.8 : 2.4
         ring.glowWidth = style == "spell-impact" ? 5 : 1
         ring.zPosition = 870
-        addChild(ring)
+        addTransientEffect(ring)
         if style == "spell-telegraph" {
             ring.run(.sequence([.group([.scale(to: 1.22, duration: 0.24), .fadeOut(withDuration: 0.34)]), .removeFromParent()]))
         } else {
@@ -671,7 +686,7 @@ final class ArenaScene: SKScene {
                 let spark = SKShapeNode(circleOfRadius: max(1.5, tileWidth * 0.055))
                 spark.position = center; spark.fillColor = index.isMultiple(of: 2) ? .systemYellow : .systemOrange
                 spark.strokeColor = .white.withAlphaComponent(0.6); spark.lineWidth = 0.5
-                spark.zPosition = 875; addChild(spark)
+                spark.zPosition = 875; addTransientEffect(spark)
                 let angle = CGFloat(index) * (.pi * 2 / 10)
                 let distance = radius * (0.48 + CGFloat(index % 3) * 0.12)
                 spark.run(.sequence([.group([.moveBy(x: cos(angle) * distance, y: sin(angle) * distance, duration: 0.28),
