@@ -252,7 +252,11 @@ final class ArenaScene: SKScene {
                 if let style = event.style, ["melee", "projectile", "beam"].contains(style) {
                     addAttackEffect(event, style: style)
                 }
-                if event.style != "melee" && event.style != "projectile" && event.style != "beam" {
+                if let style = event.style, style == "spell-telegraph" || style == "spell-impact" {
+                    addSpellEffect(event, style: style)
+                }
+                if event.style != "melee" && event.style != "projectile" && event.style != "beam" &&
+                    event.style != "spell-telegraph" && event.style != "spell-impact" {
                     let label = SKLabelNode(text: event.text)
                     label.name = name
                     label.fontName = "AvenirNext-Heavy"
@@ -445,6 +449,34 @@ final class ArenaScene: SKScene {
             if let turret = source.childNode(withName: "//turret") {
                 turret.removeAction(forKey: "turret-recoil")
                 turret.run(.sequence([.scale(to: 1.12, duration: 0.045), .scale(to: 1.0, duration: 0.10)]), withKey: "turret-recoil")
+            }
+        }
+    }
+
+    private func addSpellEffect(_ event: BattleEvent, style: String) {
+        let center = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight)
+        let radius = CGFloat(min(5.0, max(0.8, event.effectRadius ?? 2.5))) * tileWidth
+        let ring = SKShapeNode(circleOfRadius: style == "spell-telegraph" ? radius * 0.72 : radius * 0.38)
+        ring.position = center
+        ring.fillColor = style == "spell-telegraph" ? UIColor.systemCyan.withAlphaComponent(0.035) : UIColor.systemOrange.withAlphaComponent(0.18)
+        ring.strokeColor = style == "spell-telegraph" ? UIColor.systemCyan.withAlphaComponent(0.9) : UIColor.systemYellow
+        ring.lineWidth = style == "spell-telegraph" ? 1.8 : 2.4
+        ring.glowWidth = style == "spell-impact" ? 5 : 1
+        ring.zPosition = 870
+        addChild(ring)
+        if style == "spell-telegraph" {
+            ring.run(.sequence([.group([.scale(to: 1.22, duration: 0.24), .fadeOut(withDuration: 0.34)]), .removeFromParent()]))
+        } else {
+            ring.run(.sequence([.group([.scale(to: radius / max(1, ring.frame.width / 2) * 1.35, duration: 0.22),
+                                       .fadeOut(withDuration: 0.30)]), .removeFromParent()]))
+            if !reduceMotion && !thermalLimited {
+                let shake = min(6.0, max(1.5, radius * 0.12))
+                arenaCamera?.removeAction(forKey: "spell-impact-shake")
+                arenaCamera?.run(.sequence([
+                    .moveBy(x: shake, y: -shake * 0.55, duration: 0.025),
+                    .moveBy(x: -shake * 2, y: shake * 1.1, duration: 0.05),
+                    .moveBy(x: shake, y: -shake * 0.55, duration: 0.025)
+                ]), withKey: "spell-impact-shake")
             }
         }
     }
