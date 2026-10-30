@@ -14,6 +14,11 @@ final class ArenaScene: SKScene {
     private var transientEffects: [SKNode] = []
     private var particlePool: [SKShapeNode] = []
     private var projectilePool: [SKShapeNode] = []
+    private(set) var proofProjectileEffectCount = 0
+    private(set) var proofMeleeSwingCount = 0
+    var proofHasProjectileEffect: Bool { proofProjectileEffectCount > 0 }
+    var proofHasMeleeSwing: Bool { proofMeleeSwingCount > 0 }
+    var proofHasSpellImpactShake: Bool { arenaCamera?.action(forKey: "spell-impact-shake") != nil }
     private var lastHP: [Int: Double] = [:]
     private var lastTeams: [Int: Team] = [:]
     private var lastPositions: [Int: CGPoint] = [:]
@@ -629,6 +634,8 @@ final class ArenaScene: SKScene {
 
     private func addAttackEffect(_ event: BattleEvent, style: String) {
         guard let sourceX = event.sourceX, let sourceY = event.sourceY else { return }
+        if style == "melee" { proofMeleeSwingCount += 1 }
+        if style == "projectile" { proofProjectileEffectCount += 1 }
         let from = CGPoint(x: CGFloat(sourceX) * tileWidth, y: CGFloat(sourceY) * tileHeight)
         let to = CGPoint(x: CGFloat(event.x) * tileWidth, y: CGFloat(event.y) * tileHeight)
         let color: UIColor = style == "beam" ? .systemPurple : (style == "melee" ? .white : .systemYellow)
