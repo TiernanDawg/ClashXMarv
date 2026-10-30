@@ -97,6 +97,7 @@ struct BattleEvent: Identifiable {
     var sourceY: Double? = nil
     var sourceID: Int? = nil
     var style: String? = nil
+    var effectRadius: Double? = nil
 }
 struct ArenaDebugItem {
     let x: Double
@@ -164,7 +165,8 @@ final class BattleModel: ObservableObject {
     private var navigationPaths: [Int: CachedArenaPath] = [:]
     private var stalledFor: [Int: Double] = [:]
     private var lastProgressPosition: [Int: (Double, Double)] = [:]
-    private var navigationRevision = 0\n    private var pathRepathCountByUnit: [Int: Int] = [:]
+    private var navigationRevision = 0
+    private var pathRepathCountByUnit: [Int: Int] = [:]
     private var lastBlueCard: String?
     private var lastRedCard: String?
     var isFinished: Bool { result != nil }
@@ -367,7 +369,8 @@ final class BattleModel: ObservableObject {
         if soundEnabled { ProceduralAudio.shared.play(.spell, enabled: true) }
         if analog.contains("rage") {
             activeSpells.append(TimedSpell(cardID: card.id, team: team, x: x, y: y, remaining: 6.0))
-            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-telegraph", effectRadius: 3.0))\n            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-impact", effectRadius: 3.0))
+            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-telegraph", effectRadius: 3.0))
+            events.append(BattleEvent(x: x, y: y, text: "RAGE!", born: elapsed, style: "spell-impact", effectRadius: 3.0))
             return
         }
         if analog.contains("goblin barrel") || analog.contains("skeleton barrel") {
@@ -831,8 +834,8 @@ final class BattleModel: ObservableObject {
 
     private func separateUnits() {
         guard entities.count > 1 else { return }
-        for i in 0..<(entities.count - 1) where entities[i].alive && !entities[i].tower {
-            for j in (i + 1)..<entities.count where entities[j].alive && !entities[j].tower {
+        for i in 0..<(entities.count - 1) where entities[i].alive && !entities[i].tower && CardCatalog.byID[entities[i].cardID]?.kind == .troop {
+            for j in (i + 1)..<entities.count where entities[j].alive && !entities[j].tower && CardCatalog.byID[entities[j].cardID]?.kind == .troop {
                 let firstFlying = CardCatalog.byID[entities[i].cardID]?.behavior.contains(.flying) == true
                 let secondFlying = CardCatalog.byID[entities[j].cardID]?.behavior.contains(.flying) == true
                 // Air and ground occupy separate collision layers.
@@ -968,7 +971,8 @@ final class BattleModel: ObservableObject {
                 (obstacle.tower || CardCatalog.byID[obstacle.cardID]?.kind == .building) {
                 blocked.insert(ArenaNavigation.cell(x: obstacle.x, y: obstacle.y))
             }
-            let cells = ArenaNavigation.path(from: startCell, to: targetCell, blocked: blocked)\n            pathRepathCountByUnit[entity.id, default: 0] += 1
+            let cells = ArenaNavigation.path(from: startCell, to: targetCell, blocked: blocked)
+            pathRepathCountByUnit[entity.id, default: 0] += 1
             cached = CachedArenaPath(targetID: target.id, targetCell: targetCell,
                                      navigationRevision: navigationRevision, cells: cells, cursor: min(1, max(0, cells.count - 1)))
         }
