@@ -111,7 +111,11 @@ enum CardSpriteFactory {
         default:
             shape([CGPoint(x:-bodyWidth*0.40,y:h*0.16),CGPoint(x:bodyWidth*0.40,y:h*0.16),CGPoint(x:bodyWidth*0.58,y:-h*0.12),CGPoint(x:bodyWidth*0.22,y:-h*0.37),CGPoint(x:-bodyWidth*0.22,y:-h*0.37),CGPoint(x:-bodyWidth*0.58,y:-h*0.12)], coat, outline, 2.2)
         }
-        if root.children.indices.contains(bodyStartIndex) { root.children[bodyStartIndex].name = "body" }\n        if let body = root.childNode(withName: "body") {\n            body.run(.repeatForever(.sequence([.scaleY(to: 0.96, duration: 0.38), .scaleY(to: 1.02, duration: 0.38)])), withKey: "idle-breathe")\n        }\n        // Team sash and bright card trim never replace the card's own palette.
+        if root.children.indices.contains(bodyStartIndex) { root.children[bodyStartIndex].name = "body" }
+        if let body = root.childNode(withName: "body") {
+            body.run(.repeatForever(.sequence([.scaleY(to: 0.96, duration: 0.38), .scaleY(to: 1.02, duration: 0.38)])), withKey: "idle-breathe")
+        }
+        // Team sash and bright card trim never replace the card's own palette.
         shape([CGPoint(x:-bodyWidth*0.44,y:h*0.04),CGPoint(x:bodyWidth*0.44,y:h*0.04),CGPoint(x:bodyWidth*0.30,y:-h*0.12),CGPoint(x:-bodyWidth*0.30,y:-h*0.12)], teamColor, outline, 1.4).zPosition = 3
         if robot || stone {
             rect(CGRect(x:-bodyWidth*0.37,y:-h*0.23,width:bodyWidth*0.74,height:h*0.20), w*0.045, trim, outline, 1.8, z: 4)
