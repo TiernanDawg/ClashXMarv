@@ -98,7 +98,9 @@ final class VisualProofTests: XCTestCase {
 
         let highResolution = snapshot(view, scene)
         attach(highResolution, name: "Card-Contact-Sheet-3x-Blue-and-Red.png")
-        let oneX = UIGraphicsImageRenderer(size: boardSize).image { _ in
+        let oneXFormat = UIGraphicsImageRendererFormat()
+        oneXFormat.scale = 1
+        let oneX = UIGraphicsImageRenderer(size: boardSize, format: oneXFormat).image { _ in
             highResolution.draw(in: CGRect(origin: .zero, size: boardSize))
         }
         attach(oneX, name: "Card-Contact-Sheet-In-Game-Scale-Blue-and-Red.png")
@@ -120,7 +122,7 @@ final class VisualProofTests: XCTestCase {
         scene.proofAddSpell(style: "spell-impact", x: 8.2, y: 13.2, radius: 3.0)
         attach(snapshot(view, scene), name: "Arena-Spell-Landing-Impact.png")
 
-        let (destroyView, destroyScene, _) = makeArena(removeRedPrincess: true)
+        let (destroyView, destroyScene, _) = makeArena()
         destroyScene.proofAddTowerDestruction(x: 3.2, y: 30, destroyedTeam: .red)
         attach(snapshot(destroyView, destroyScene), name: "Arena-Tower-Destruction-Explosion.png")
 
@@ -131,14 +133,12 @@ final class VisualProofTests: XCTestCase {
 
     private func frameStrip(kind: String) -> UIImage {
         let (view, scene, _) = makeArena()
+        let tower = kind == "tower"
+        let sourceID = tower ? 1 : 7
         if kind == "spell" {
             scene.proofAddSpell(style: "spell-telegraph", x: 8.2, y: 13.2, radius: 3.0)
         } else {
-            let tower = kind == "tower"
-            scene.proofAddAttack(style: kind == "melee" ? "melee" : "projectile",
-                                 sourceID: tower ? 1 : 7,
-                                 from: tower ? CGPoint(x: 3.2, y: 2) : CGPoint(x: 5.0, y: 10.2),
-                                 to: CGPoint(x: 6.0, y: 13.2))
+            scene.proofBeginAttack(sourceID: sourceID)
         }
         var frames: [UIImage] = []
         if kind == "spell" {
@@ -149,13 +149,20 @@ final class VisualProofTests: XCTestCase {
             RunLoop.main.run(until: Date().addingTimeInterval(0.20))
             frames.append(snapshot(view, scene))
         } else {
-            for delay in [0.025, 0.10, 0.22] {
-                RunLoop.main.run(until: Date().addingTimeInterval(delay))
-                frames.append(snapshot(view, scene))
-            }
+            frames.append(snapshot(view, scene))
+            scene.proofAddAttack(style: kind == "melee" ? "melee" : "projectile",
+                                 sourceID: sourceID,
+                                 from: tower ? CGPoint(x: 3.2, y: 2) : CGPoint(x: 5.0, y: 10.2),
+                                 to: CGPoint(x: 6.0, y: 13.2))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.10))
+            frames.append(snapshot(view, scene))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.22))
+            frames.append(snapshot(view, scene))
         }
         let stripSize = CGSize(width: boardSize.width * 3, height: boardSize.height)
-        return UIGraphicsImageRenderer(size: stripSize).image { context in
+        let stripFormat = UIGraphicsImageRendererFormat()
+        stripFormat.scale = 1
+        return UIGraphicsImageRenderer(size: stripSize, format: stripFormat).image { context in
             for (index, frame) in frames.enumerated() {
                 frame.draw(in: CGRect(x: CGFloat(index) * boardSize.width, y: 0,
                                       width: boardSize.width, height: boardSize.height))
