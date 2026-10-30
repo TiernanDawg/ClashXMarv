@@ -334,7 +334,7 @@ final class ArenaScene: SKScene {
                 let line = SKShapeNode(path: linePath)
                 // A solid line keeps the target marker compatible with the iOS 16 SpriteKit API.
                 line.strokeColor = UIColor.systemPink.withAlphaComponent(0.8)
-                line.lineWidth = 1.1; line.lineDashPattern = [NSNumber(value: 4), NSNumber(value: 3)]
+                line.lineWidth = 1.1
                 layer.addChild(line)
             }
         }
