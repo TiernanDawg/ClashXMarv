@@ -174,13 +174,18 @@ final class VisualProofTests: XCTestCase {
         // contentScaleFactor is 1. Derive crop cells from the actual CGImage dimensions.
         let pixelCellWidth = width / columns
         let pixelCellHeight = height / 10
+        let backingScaleX = max(1, pixelCellWidth / cellWidth)
+        let backingScaleY = max(1, pixelCellHeight / cellHeight)
         for index in CardCatalog.all.indices {
             let row = index / columns, column = index % columns
             let pixelRow = 9 - row
             var mask: [Bool] = []
-            for y in (pixelRow * pixelCellHeight)..<min(height, (pixelRow + 1) * pixelCellHeight) {
-                for x in (column * pixelCellWidth)..<min(width, (column + 1) * pixelCellWidth) {
-                    let offset = y * bytesPerRow + x * 4
+            // Compare at the actual 1x game scale; sample one backing pixel per screen pixel.
+            for y in 0..<cellHeight {
+                for x in 0..<cellWidth {
+                    let pixelX = column * pixelCellWidth + x * backingScaleX + backingScaleX / 2
+                    let pixelY = pixelRow * pixelCellHeight + y * backingScaleY + backingScaleY / 2
+                    let offset = pixelY * bytesPerRow + pixelX * 4
                     let r = CGFloat(pixels[offset]) / 255
                     let g = CGFloat(pixels[offset + 1]) / 255
                     let b = CGFloat(pixels[offset + 2]) / 255
