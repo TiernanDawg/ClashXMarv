@@ -224,6 +224,15 @@ enum CardSpriteFactory {
             ellipse(CGRect(x: -w * 0.13, y: -h * 0.04, width: w * 0.26, height: h * 0.22), .systemYellow, outline, 1.2, z: 3)
             ellipse(CGRect(x: -w * 0.075, y: h * 0.06, width: w * 0.055, height: h * 0.07), outline, .clear, 0, z: 4)
             ellipse(CGRect(x: w * 0.02, y: h * 0.06, width: w * 0.055, height: h * 0.07), outline, .clear, 0, z: 4)
+            // Fire/ice/electric spirits are tiny troops, not static spell glyphs:
+            // add short articulated flame-feet so their hop/walk cycle is visible.
+            for (name, side) in [("leg-left", -1.0), ("leg-right", 1.0)] {
+                let leg = SKNode(); leg.name = name
+                leg.position = CGPoint(x: CGFloat(side) * w * 0.16, y: -h * 0.24)
+                let foot = SKShapeNode(ellipseOf: CGSize(width: w * 0.20, height: h * 0.10))
+                foot.fillColor = trim; foot.strokeColor = outline; foot.lineWidth = 1.4
+                leg.addChild(foot); root.addChild(leg)
+            }
             return root
         }
 
