@@ -170,12 +170,16 @@ final class VisualProofTests: XCTestCase {
         }
 
         var masks: [[Bool]] = []
+        // SKView may return a drawable at the device's backing scale even when its
+        // contentScaleFactor is 1. Derive crop cells from the actual CGImage dimensions.
+        let pixelCellWidth = width / columns
+        let pixelCellHeight = height / 10
         for index in CardCatalog.all.indices {
             let row = index / columns, column = index % columns
-            let pixelRow = (height / cellHeight - 1) - row
+            let pixelRow = 9 - row
             var mask: [Bool] = []
-            for y in (pixelRow * cellHeight)..<min(height, (pixelRow + 1) * cellHeight) {
-                for x in (column * cellWidth)..<min(width, (column + 1) * cellWidth) {
+            for y in (pixelRow * pixelCellHeight)..<min(height, (pixelRow + 1) * pixelCellHeight) {
+                for x in (column * pixelCellWidth)..<min(width, (column + 1) * pixelCellWidth) {
                     let offset = y * bytesPerRow + x * 4
                     let r = CGFloat(pixels[offset]) / 255
                     let g = CGFloat(pixels[offset + 1]) / 255
