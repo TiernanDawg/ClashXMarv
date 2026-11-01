@@ -763,7 +763,8 @@ final class ArenaScene: SKScene {
             ? UIColor(red: 0.13, green: 0.48, blue: 0.92, alpha: 1)
             : UIColor(red: 0.88, green: 0.20, blue: 0.27, alpha: 1)
         let isFlyingEntity = definition?.behavior.contains(.flying) == true
-        let shadow = SKShapeNode(ellipseOf: CGSize(width: entity.tower ? tileWidth * 1.6 : tileWidth * (isFlyingEntity ? 0.78 : 1.12), height: tileHeight * 0.32))
+        let towerFootprint = entity.king ? 3.85 : 2.9
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: entity.tower ? tileWidth * towerFootprint : tileWidth * (isFlyingEntity ? 0.78 : 1.12), height: tileHeight * (entity.tower ? towerFootprint * 0.22 : 0.32)))
         shadow.position = CGPoint(x: tileWidth * 0.08, y: -tileHeight * (isFlyingEntity ? 0.72 : 0.34))
         shadow.fillColor = .black.withAlphaComponent(0.32); shadow.strokeColor = .clear
         root.addChild(shadow)
@@ -775,8 +776,10 @@ final class ArenaScene: SKScene {
         root.addChild(visual)
 
         if entity.tower {
-            let width = tileWidth * (entity.king ? 1.48 : 1.27)
-            let height = tileHeight * (entity.king ? 1.50 : 1.30)
+            // Keep the rendered footprint close to the arena's intended tile geometry:
+            // Princess = 3 × 3 tiles; King = 4 × 4 tiles.
+            let width = tileWidth * (entity.king ? 3.78 : 2.82)
+            let height = tileHeight * (entity.king ? 3.78 : 2.82)
             addRect(visual, size: CGSize(width: width, height: height), at: .zero, radius: 5,
                     fill: UIColor(red: 0.20, green: 0.23, blue: 0.29, alpha: 1),
                     stroke: UIColor.white.withAlphaComponent(0.72), lineWidth: 1.7, name: "body")
@@ -792,6 +795,9 @@ final class ArenaScene: SKScene {
                       stroke: UIColor.white.withAlphaComponent(0.85), lineWidth: 1.2)
             addRect(turret, size: CGSize(width: width * 0.17, height: height * 0.42), at: CGPoint(x: 0, y: height * 0.29), radius: 2,
                     fill: UIColor(red: 0.82, green: 0.84, blue: 0.89, alpha: 1), stroke: .darkGray, lineWidth: 0.8)
+            // Bright muzzle and a recessed arrow slit keep the weapon readable at phone scale.
+            addCircle(turret, radius: max(2, width * 0.075), at: CGPoint(x: 0, y: height * 0.51),
+                      fill: UIColor(white: 0.10, alpha: 1), stroke: UIColor.white.withAlphaComponent(0.75), lineWidth: 0.8)
             if entity.king {
                 // A visible king mascot sits on the King Tower rather than a generic turret cap.
                 addRect(visual, size: CGSize(width: width * 0.50, height: height * 0.28),
@@ -815,6 +821,16 @@ final class ArenaScene: SKScene {
                 addPolygon(visual, points: [
                     CGPoint(x: width * 0.18, y: height * 0.44), CGPoint(x: width * 0.68, y: height * 0.66), CGPoint(x: width * 0.18, y: height * 0.78)
                 ], fill: accent, stroke: .white, lineWidth: 0.7)
+                // Original crown crest, centered on the tower face (not a borrowed game asset).
+                addPolygon(visual, points: [
+                    CGPoint(x: -width * 0.24, y: -height * 0.10),
+                    CGPoint(x: -width * 0.19, y: height * 0.10),
+                    CGPoint(x: -width * 0.07, y: -height * 0.01),
+                    CGPoint(x: 0, y: height * 0.13),
+                    CGPoint(x: width * 0.08, y: -height * 0.01),
+                    CGPoint(x: width * 0.20, y: height * 0.10),
+                    CGPoint(x: width * 0.25, y: -height * 0.10)
+                ], fill: UIColor.systemYellow, stroke: UIColor.white.withAlphaComponent(0.9), lineWidth: 1.0)
             }
         } else if let card = definition {
             let avatar = CardSpriteFactory.make(card: card, team: entity.team,
@@ -829,12 +845,13 @@ final class ArenaScene: SKScene {
             }
         }
 
-        let hpY = entity.tower ? tileHeight * 1.10 : tileHeight * 0.86
-        let hpBack = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? 1.42 : 1.23), height: max(3, tileHeight * 0.17)), cornerRadius: 2)
+        let hpY = entity.tower ? tileHeight * (entity.king ? 2.12 : 1.62) : tileHeight * 0.86
+        let towerBarWidth = entity.king ? 3.45 : 2.55
+        let hpBack = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? towerBarWidth : 1.23), height: max(3, tileHeight * 0.17)), cornerRadius: 2)
         hpBack.name = "hp-background"
         hpBack.position = CGPoint(x: 0, y: hpY); hpBack.fillColor = UIColor.black.withAlphaComponent(0.85); hpBack.strokeColor = UIColor.white.withAlphaComponent(0.65); hpBack.lineWidth = 0.6
         root.addChild(hpBack)
-        let hp = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? 1.34 : 1.15), height: max(2, tileHeight * 0.12)), cornerRadius: 1)
+        let hp = SKShapeNode(rectOf: CGSize(width: tileWidth * (entity.tower ? towerBarWidth - 0.10 : 1.15), height: max(2, tileHeight * 0.12)), cornerRadius: 1)
         hp.name = "hp"; hp.position = CGPoint(x: -tileWidth * 0.025, y: hpY); hp.fillColor = .systemGreen; hp.strokeColor = .clear
         root.addChild(hp)
         if entity.deployClock > 0 {

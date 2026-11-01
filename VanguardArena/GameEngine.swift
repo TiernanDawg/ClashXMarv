@@ -206,8 +206,10 @@ final class BattleModel: ObservableObject {
         let redOffset = Int(random() % UInt64(max(1, redQueue.count)))
         redQueue = Array(redQueue[redOffset...]) + Array(redQueue[..<redOffset])
         redHand = Array(redQueue.prefix(4))
-        addTower(.blue, 3.2, 2, false); addTower(.blue, 14.8, 2, false); addTower(.blue, 9, 0.7, true)
-        addTower(.red, 3.2, 30, false); addTower(.red, 14.8, 30, false); addTower(.red, 9, 31.3, true)
+        // Three-tile Princess Towers sit forward of the four-tile King Tower.
+        // The mirrored rows leave a readable moat between each tower footprint and the river.
+        addTower(.blue, 3.2, 5.8, false); addTower(.blue, 14.8, 5.8, false); addTower(.blue, 9, 2.0, true)
+        addTower(.red, 3.2, 26.2, false); addTower(.red, 14.8, 26.2, false); addTower(.red, 9, 30.0, true)
         if isPractice && practiceScenario == .targetDummy {
             entitySequence += 1
             entities.append(BattleEntity(id: entitySequence, cardID: "tower", team: .red, x: 9, y: 19.2, hp: 100000, maxHP: 100000, tower: true, awake: true))
@@ -358,12 +360,20 @@ final class BattleModel: ObservableObject {
         return true
     }
     private func canDeploy(team: Team, x: Double, y: Double) -> Bool {
+        guard x >= 0.5, x <= 17.5, y >= 0.5, y <= 31.5 else { return false }
         let baseValid = team == .blue ? y <= 15.5 : y >= 16.5
         if baseValid { return true }
+
+        // A fallen Princess Tower opens only its own three-tile lane pocket,
+        // immediately across the river on the opponent's side.
         let laneTowerX = x < 9 ? 3.2 : 14.8
+        let inLanePocket = abs(x - laneTowerX) <= 1.7
+        guard inLanePocket else { return false }
         let opponent: Team = team == .blue ? .red : .blue
-        let pocketOpen = fallenTowerKeys.contains("\(opponent.rawValue)-\(laneTowerX < 9 ? "left" : "right")")
-        return pocketOpen && (team == .blue ? y <= 19.5 : y >= 12.5)
+        let lane = laneTowerX < 9 ? "left" : "right"
+        let pocketOpen = fallenTowerKeys.contains("\(opponent.rawValue)-\(lane)")
+        let inEnemyPocket = team == .blue ? (y >= 16.5 && y <= 19.5) : (y >= 12.5 && y <= 15.5)
+        return pocketOpen && inEnemyPocket
     }
     private func cycle(_ id: String) {
         if let index = queue.firstIndex(of: id) { queue.remove(at: index); queue.append(id) }
